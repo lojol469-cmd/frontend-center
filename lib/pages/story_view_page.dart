@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 import '../api_service.dart';
+import '../components/story_video_player.dart';
 
 class StoryViewPage extends StatefulWidget {
   final String token;
@@ -24,8 +24,6 @@ class _StoryViewPageState extends State<StoryViewPage> {
   late PageController _pageController;
   int _currentStoryIndex = 0;
   Timer? _timer;
-  VideoPlayerController? _videoController;
-  bool _isVideoInitialized = false;
   bool _isPaused = false;
 
   final Map<int, bool> _viewedStories = {}; // Track viewed stories
@@ -58,7 +56,6 @@ class _StoryViewPageState extends State<StoryViewPage> {
   @override
   void dispose() {
     _timer?.cancel();
-    _videoController?.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -70,9 +67,9 @@ class _StoryViewPageState extends State<StoryViewPage> {
     final mediaType = currentStory['mediaType'] ?? 'text';
     int duration = currentStory['duration'] ?? 5;
 
+    // Pour les vidéos, le timer sera géré par le callback onFinished
     if (mediaType == 'video') {
-      _initializeVideo(currentStory['mediaUrl']);
-      return; // Video will handle its own timing
+      return;
     }
 
     _timer = Timer(Duration(seconds: duration), () {
@@ -82,41 +79,10 @@ class _StoryViewPageState extends State<StoryViewPage> {
     });
   }
 
-  Future<void> _initializeVideo(String? videoUrl) async {
-    if (videoUrl == null || videoUrl.isEmpty) {
-      _nextStory();
-      return;
-    }
-
-    try {
-      _videoController?.dispose();
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-      
-      await _videoController!.initialize();
-      
-      if (mounted) {
-        setState(() => _isVideoInitialized = true);
-        _videoController!.play();
-        
-        _videoController!.addListener(() {
-          if (_videoController!.value.position >= _videoController!.value.duration) {
-            _nextStory();
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('Error initializing video: $e');
-      if (mounted) {
-        _nextStory();
-      }
-    }
-  }
-
   void _nextStory() {
     if (_currentStoryIndex < widget.stories.length - 1) {
       setState(() {
         _currentStoryIndex++;
-        _isVideoInitialized = false;
       });
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -133,7 +99,6 @@ class _StoryViewPageState extends State<StoryViewPage> {
     if (_currentStoryIndex > 0) {
       setState(() {
         _currentStoryIndex--;
-        _isVideoInitialized = false;
       });
       _pageController.previousPage(
         duration: const Duration(milliseconds: 300),
@@ -148,10 +113,8 @@ class _StoryViewPageState extends State<StoryViewPage> {
       _isPaused = !_isPaused;
       if (_isPaused) {
         _timer?.cancel();
-        _videoController?.pause();
       } else {
         _startStoryTimer();
-        _videoController?.play();
       }
     });
   }
@@ -215,9 +178,6 @@ class _StoryViewPageState extends State<StoryViewPage> {
         
         // Réinitialiser les controllers
         _timer?.cancel();
-        _videoController?.dispose();
-        _videoController = null;
-        _isVideoInitialized = false;
         
         // Forcer le rebuild et redémarrer
         setState(() {});
@@ -350,7 +310,6 @@ class _StoryViewPageState extends State<StoryViewPage> {
               onPageChanged: (index) {
                 setState(() {
                   _currentStoryIndex = index;
-                  _isVideoInitialized = false;
                 });
                 _markStoryAsViewed(index);
                 _startStoryTimer();
@@ -368,6 +327,102 @@ class _StoryViewPageState extends State<StoryViewPage> {
                   _buildProgressBar(),
                   _buildHeader(),
                 ],
+              ),
+            ),
+
+            // Boutons de navigation (gauche/droite)
+            Positioned.fill(
+              child: Row(
+                children: [
+                  // Zone gauche (reculer)
+                  Expanded(
+                    flex: 1,
+                    child: GestureDetector(
+                      onTap: _previousStory,
+                      child: Container(
+                        color: Colors.transparent,
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.only(left: 16),
+                        child: _currentStoryIndex > 0
+                            ? Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.chevron_left,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                  
+                  // Zone centrale (pause)
+                  Expanded(
+                    flex: 1,
+                    child: GestureDetector(
+                      onTap: _togglePause,
+                      child: Container(color: Colors.transparent),
+                    ),
+                  ),
+                  
+                  // Zone droite (avancer)
+                  Expanded(
+                    flex: 1,
+                    child: GestureDetector(
+                      onTap: _nextStory,
+                      child: Container(
+                        color: Colors.transparent,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 16),
+                        child: _currentStoryIndex < widget.stories.length - 1
+                            ? Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Bouton fermer (en bas à droite)
+            Positioned(
+              bottom: 32,
+              right: 16,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => Navigator.pop(context),
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
               ),
             ),
 
@@ -602,18 +657,53 @@ class _StoryViewPageState extends State<StoryViewPage> {
         ],
       );
     } else if (mediaType == 'video' && mediaUrl.isNotEmpty) {
-      if (_videoController != null && _isVideoInitialized) {
-        return Center(
-          child: AspectRatio(
-            aspectRatio: _videoController!.value.aspectRatio,
-            child: VideoPlayer(_videoController!),
+      debugPrint('🎥 Creating video player for: $mediaUrl');
+      debugPrint('   Is paused: $_isPaused');
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          StoryVideoPlayer(
+            url: mediaUrl,
+            isPaused: _isPaused,
+            onFinished: () {
+              debugPrint('✅ Video finished, going to next story');
+              if (mounted && !_isPaused) {
+                _nextStory();
+              }
+            },
+            onError: () {
+              debugPrint('❌ Video error, going to next story');
+              if (mounted) {
+                _nextStory();
+              }
+            },
           ),
-        );
-      } else {
-        return const Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        );
-      }
+          if (content.isNotEmpty)
+            Positioned(
+              bottom: 100,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  content,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
     } else {
       // Story texte
       Color bgColor;

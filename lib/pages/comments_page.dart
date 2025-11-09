@@ -31,6 +31,8 @@ class _CommentsPageState extends State<CommentsPage> {
   final List<File> _selectedFiles = [];
   String? _replyToId;
   String? _replyToName;
+  String? _editingCommentId;
+  String? _editingCommentContent;
 
   @override
   void initState() {
@@ -173,6 +175,12 @@ class _CommentsPageState extends State<CommentsPage> {
     
     if (content.isEmpty && _selectedFiles.isEmpty) return;
 
+    // Si on est en mode édition
+    if (_editingCommentId != null) {
+      await _saveEditedComment();
+      return;
+    }
+
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final token = appProvider.accessToken;
 
@@ -217,6 +225,46 @@ class _CommentsPageState extends State<CommentsPage> {
     }
   }
 
+  Future<void> _saveEditedComment() async {
+    final content = _messageController.text.trim();
+    
+    if (content.isEmpty || _editingCommentId == null) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) return;
+
+    setState(() => _isSending = true);
+
+    try {
+      // Mise à jour via l'API
+      await ApiService.updateComment(
+        token,
+        widget.publicationId,
+        _editingCommentId!,
+        content,
+      );
+
+      // Mise à jour locale
+      setState(() {
+        final index = _comments.indexWhere((c) => c['_id'] == _editingCommentId);
+        if (index != -1) {
+          _comments[index]['content'] = content;
+          _comments[index]['isEdited'] = true;
+        }
+        _messageController.clear();
+        _editingCommentId = null;
+        _editingCommentContent = null;
+      });
+    } catch (e) {
+      debugPrint('Erreur modification commentaire: $e');
+      _showError('Erreur de modification: $e');
+    } finally {
+      setState(() => _isSending = false);
+    }
+  }
+
   void _replyTo(String commentId, String userName) {
     setState(() {
       _replyToId = commentId;
@@ -228,6 +276,25 @@ class _CommentsPageState extends State<CommentsPage> {
     setState(() {
       _replyToId = null;
       _replyToName = null;
+    });
+  }
+
+  void _editComment(Map<String, dynamic> comment) {
+    setState(() {
+      _editingCommentId = comment['_id'];
+      _editingCommentContent = comment['content'] ?? '';
+      _messageController.text = _editingCommentContent!;
+      // Annuler la réponse si on était en train de répondre
+      _replyToId = null;
+      _replyToName = null;
+    });
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _editingCommentId = null;
+      _editingCommentContent = null;
+      _messageController.clear();
     });
   }
 
@@ -656,6 +723,18 @@ class _CommentsPageState extends State<CommentsPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Modifier (seulement si c'est son propre commentaire)
+            if (isOwnComment)
+              ListTile(
+                leading: const Icon(Icons.edit, color: Colors.orange),
+                title: const Text('Modifier', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editComment(comment);
+                },
+              ),
+            
+            // Supprimer (seulement si c'est son propre commentaire)
             if (isOwnComment)
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
@@ -665,6 +744,8 @@ class _CommentsPageState extends State<CommentsPage> {
                   _deleteComment(comment['_id']);
                 },
               ),
+            
+            // Répondre (toujours disponible)
             ListTile(
               leading: const Icon(Icons.reply, color: Color(0xFF00D4FF)),
               title: const Text('Répondre', style: TextStyle(color: Colors.white)),
@@ -694,6 +775,29 @@ class _CommentsPageState extends State<CommentsPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Mode Édition
+          if (_editingCommentId != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.orange.shade50,
+              child: Row(
+                children: [
+                  const Icon(Icons.edit, size: 16, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Modification du message',
+                      style: TextStyle(fontSize: 12, color: Colors.black87),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: _cancelEdit,
+                  ),
+                ],
+              ),
+            ),
+          
           // Répondre à...
           if (_replyToName != null)
             Container(

@@ -63,7 +63,7 @@ dependencies:
   image_picker: ^1.0.7
   
   # Video Player
-  video_player: ^2.8.2
+  video_player: ^2.9.2
   
   # File Picker (audio, documents)
   file_picker: ^8.1.4

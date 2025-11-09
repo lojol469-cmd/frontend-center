@@ -1242,7 +1242,8 @@ app.delete('/api/publications/:pubId/comments/:commentId', verifyToken, async (r
       });
     }
 
-    comment.remove();
+    // Supprimer le commentaire du tableau
+    pub.comments.pull(req.params.commentId);
     await pub.save();
 
     // 🔥 Broadcast via WebSocket
@@ -2667,8 +2668,31 @@ app.post('/api/stories', verifyToken, storyUpload.single('media'), async (req, r
 
     if (req.file) {
       mediaUrl = `${BASE_URL}/uploads/stories/${req.file.filename}`;
-      mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+      
+      // Détection du type de média
+      console.log('📹 MIME type du fichier:', req.file.mimetype);
+      console.log('📁 Extension du fichier:', req.file.originalname.split('.').pop());
+      
+      if (req.file.mimetype.startsWith('video/')) {
+        mediaType = 'video';
+        console.log('✅ Détecté comme VIDÉO');
+      } else if (req.file.mimetype.startsWith('image/')) {
+        mediaType = 'image';
+        console.log('✅ Détecté comme IMAGE');
+      } else {
+        // Fallback sur l'extension si MIME type n'est pas clair
+        const ext = req.file.originalname.split('.').pop().toLowerCase();
+        if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) {
+          mediaType = 'video';
+          console.log('✅ Détecté comme VIDÉO (par extension)');
+        } else {
+          mediaType = 'image';
+          console.log('✅ Détecté comme IMAGE (par extension)');
+        }
+      }
+      
       console.log('✅ Fichier uploadé:', mediaUrl);
+      console.log('📊 Type final:', mediaType);
     } else if (bodyMediaType) {
       mediaType = bodyMediaType;
     }
