@@ -77,6 +77,7 @@ class MainPage extends StatelessWidget {
         ],
       ),
       child: FloatingActionButton(
+        heroTag: 'admin_add',
         onPressed: () => _showCreateDialog(context),
         backgroundColor: Colors.transparent,
         elevation: 0,

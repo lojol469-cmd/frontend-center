@@ -1151,14 +1151,21 @@ class ApiService {
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-      final data = json.decode(response.body);
 
       if (response.statusCode == 201) {
-        return data;
+        try {
+          final data = json.decode(response.body);
+          return data;
+        } catch (e) {
+          // Si le parsing JSON échoue mais que le statut est 201, considérer comme succès
+          return {'success': true, 'message': 'Story créée avec succès'};
+        }
       } else {
+        final data = json.decode(response.body);
         throw Exception(data['message'] ?? 'Erreur de création');
       }
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Erreur de connexion: $e');
     }
   }
@@ -1193,14 +1200,20 @@ class ApiService {
         headers: _authHeaders(token),
       );
 
-      final data = json.decode(response.body);
-
       if (response.statusCode == 200) {
-        return data;
+        try {
+          final data = json.decode(response.body);
+          return data;
+        } catch (e) {
+          // Si le parsing JSON échoue mais que le statut est 200, considérer comme succès
+          return {'success': true, 'message': 'Story supprimée'};
+        }
       } else {
+        final data = json.decode(response.body);
         throw Exception(data['message'] ?? 'Erreur de suppression');
       }
     } catch (e) {
+      if (e is Exception) rethrow;
       throw Exception('Erreur de connexion: $e');
     }
   }

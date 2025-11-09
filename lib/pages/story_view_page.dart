@@ -30,6 +30,22 @@ class _StoryViewPageState extends State<StoryViewPage> {
 
   final Map<int, bool> _viewedStories = {}; // Track viewed stories
 
+  // Helper pour transformer les URLs relatives en URLs complètes
+  String _getFullUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+    
+    // Si l'URL commence déjà par http:// ou https://, la retourner telle quelle
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // Sinon, ajouter le baseUrl
+    final baseUrl = ApiService.baseUrl;
+    // Enlever le slash au début de l'URL si présent
+    final cleanUrl = url.startsWith('/') ? url.substring(1) : url;
+    return '$baseUrl/$cleanUrl';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -156,39 +172,72 @@ class _StoryViewPageState extends State<StoryViewPage> {
   }
 
   Future<void> _deleteStory(int index) async {
+    if (index < 0 || index >= widget.stories.length) {
+      debugPrint('❌ Index invalide pour suppression: $index');
+      return;
+    }
+    
     final storyId = widget.stories[index]['_id'];
+    debugPrint('🗑️ Suppression de la story: $storyId (index: $index)');
     
     try {
       await ApiService.deleteStory(widget.token, storyId);
+      debugPrint('✅ Story supprimée du serveur');
+      
+      if (!mounted) return;
+      
+      // Retirer la story de la liste
+      widget.stories.removeAt(index);
+      debugPrint('📝 Stories restantes: ${widget.stories.length}');
+      
+      // Si c'était la dernière story, fermer la page
+      if (widget.stories.isEmpty) {
+        debugPrint('🚪 Plus de stories, fermeture de la page');
+        Navigator.pop(context, true);
+        return;
+      }
+      
+      // Ajuster l'index si nécessaire
+      if (_currentStoryIndex >= widget.stories.length) {
+        _currentStoryIndex = widget.stories.length - 1;
+        debugPrint('📍 Index ajusté à: $_currentStoryIndex');
+      }
       
       if (mounted) {
+        // Afficher le message de succès
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Story supprimée'),
+            content: Text('✅ Story supprimée'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
         );
-
-        // Retirer la story de la liste
-        widget.stories.removeAt(index);
         
-        if (widget.stories.isEmpty) {
-          Navigator.pop(context, true);
-        } else {
-          if (_currentStoryIndex >= widget.stories.length) {
-            _currentStoryIndex = widget.stories.length - 1;
+        // Réinitialiser les controllers
+        _timer?.cancel();
+        _videoController?.dispose();
+        _videoController = null;
+        _isVideoInitialized = false;
+        
+        // Forcer le rebuild et redémarrer
+        setState(() {});
+        
+        // Attendre un frame avant de redémarrer
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _pageController.jumpToPage(_currentStoryIndex);
+            _startStoryTimer();
           }
-          setState(() {});
-          _startStoryTimer();
-        }
+        });
       }
     } catch (e) {
+      debugPrint('❌ Erreur suppression story: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -198,23 +247,30 @@ class _StoryViewPageState extends State<StoryViewPage> {
   void _showDeleteConfirmation(int index) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Supprimer la story'),
-        content: const Text('Voulez-vous vraiment supprimer cette story ?'),
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text(
+          'Supprimer la story',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Voulez-vous vraiment supprimer cette story ?',
+          style: TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Annuler'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               _deleteStory(index);
             },
-            child: const Text(
-              'Supprimer',
-              style: TextStyle(color: Colors.red),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
             ),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
@@ -243,18 +299,30 @@ class _StoryViewPageState extends State<StoryViewPage> {
   bool _isOwner(Map<String, dynamic> story) {
     // Vérifier si l'utilisateur connecté est le propriétaire de la story
     final currentUserId = _getUserIdFromToken();
-    if (currentUserId == null) return false;
+    debugPrint('🔍 Current user ID: $currentUserId');
     
-    final storyUserId = story['userId'];
+    if (currentUserId == null) {
+      debugPrint('❌ No current user ID found');
+      return false;
+    }
+    
+    final storyUserId = story['userId'] ?? story['user'];
+    debugPrint('📖 Story userId data: $storyUserId');
     
     // Si userId est un objet (populate), extraire l'_id
     if (storyUserId is Map) {
       final storyUserIdString = storyUserId['_id'] ?? storyUserId['id'];
-      return storyUserIdString == currentUserId;
+      debugPrint('👤 Story owner ID: $storyUserIdString');
+      final isOwner = storyUserIdString == currentUserId;
+      debugPrint('✅ Is owner: $isOwner');
+      return isOwner;
     }
     
     // Si c'est juste l'ID en string
-    return storyUserId == currentUserId;
+    debugPrint('👤 Story owner ID (string): $storyUserId');
+    final isOwner = storyUserId == currentUserId;
+    debugPrint('✅ Is owner: $isOwner');
+    return isOwner;
   }
 
   @override
@@ -345,9 +413,47 @@ class _StoryViewPageState extends State<StoryViewPage> {
 
   Widget _buildHeader() {
     final story = widget.stories[_currentStoryIndex];
-    final user = story['userId'] as Map<String, dynamic>?;
-    final userName = user?['name'] ?? 'Utilisateur';
-    final userImage = user?['profileImage'] ?? '';
+    
+    debugPrint('🔍 Building header for story $_currentStoryIndex');
+    debugPrint('   Story keys: ${story.keys.toList()}');
+    debugPrint('   Story user: ${story['user']}');
+    debugPrint('   Story userId: ${story['userId']}');
+    
+    // Essayer d'abord 'user', puis 'userId' comme fallback
+    Map<String, dynamic>? user;
+    
+    // Priorité 1: story['user'] (données complètes)
+    if (story['user'] is Map<String, dynamic>) {
+      user = story['user'] as Map<String, dynamic>;
+      debugPrint('✅ User data from story["user"]: $user');
+    } 
+    // Priorité 2: story['userId'] si c'est un objet (populate)
+    else if (story['userId'] is Map<String, dynamic>) {
+      user = story['userId'] as Map<String, dynamic>;
+      debugPrint('✅ User data from story["userId"] (Map): $user');
+    }
+    // Priorité 3: userId est juste une string ID
+    else {
+      user = null;
+      debugPrint('⚠️ No user data available, only ID: ${story['userId']}');
+    }
+    
+    // Récupérer le nom de l'utilisateur
+    String userName = 'Utilisateur';
+    if (user != null) {
+      userName = user['name'] as String? ?? '';
+      
+      // Si le nom est vide, utiliser l'email
+      if (userName.isEmpty) {
+        final email = user['email'] as String? ?? '';
+        userName = email.isNotEmpty ? email.split('@')[0] : 'Utilisateur';
+      }
+    }
+    
+    debugPrint('👤 Final userName: $userName');
+    
+    final rawProfileImage = user?['profileImage'] as String? ?? '';
+    final profileImage = _getFullUrl(rawProfileImage); // Transformer l'URL
     final createdAt = story['createdAt'];
     final timeAgo = _formatTimeAgo(createdAt);
 
@@ -358,10 +464,10 @@ class _StoryViewPageState extends State<StoryViewPage> {
           CircleAvatar(
             radius: 20,
             backgroundColor: Colors.white24,
-            backgroundImage: userImage.isNotEmpty
-                ? NetworkImage(userImage)
+            backgroundImage: profileImage.isNotEmpty
+                ? NetworkImage(profileImage)
                 : null,
-            child: userImage.isEmpty
+            child: profileImage.isEmpty
                 ? Text(
                     userName[0].toUpperCase(),
                     style: const TextStyle(color: Colors.white),
@@ -392,10 +498,6 @@ class _StoryViewPageState extends State<StoryViewPage> {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
           if (_isOwner(story))
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: Colors.white),
@@ -416,6 +518,11 @@ class _StoryViewPageState extends State<StoryViewPage> {
                   ),
                 ),
               ],
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
             ),
         ],
       ),
@@ -424,9 +531,17 @@ class _StoryViewPageState extends State<StoryViewPage> {
 
   Widget _buildStoryContent(Map<String, dynamic> story) {
     final mediaType = story['mediaType'] ?? 'text';
-    final mediaUrl = story['mediaUrl'] ?? '';
+    final rawMediaUrl = story['mediaUrl'] ?? '';
+    final mediaUrl = _getFullUrl(rawMediaUrl); // Transformer l'URL
     final content = story['content'] ?? '';
     final backgroundColor = story['backgroundColor'] ?? '#00D4FF';
+
+    debugPrint('🎬 Building story content:');
+    debugPrint('   Type: $mediaType');
+    debugPrint('   Raw URL: $rawMediaUrl');
+    debugPrint('   Full URL: $mediaUrl');
+    debugPrint('   Content: $content');
+    debugPrint('   Background: $backgroundColor');
 
     if (mediaType == 'image' && mediaUrl.isNotEmpty) {
       return Stack(
@@ -435,9 +550,31 @@ class _StoryViewPageState extends State<StoryViewPage> {
           Image.network(
             mediaUrl,
             fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                      : null,
+                  color: Colors.white,
+                ),
+              );
+            },
             errorBuilder: (context, error, stackTrace) {
-              return const Center(
-                child: Icon(Icons.error, color: Colors.white, size: 80),
+              debugPrint('❌ Error loading image: $error');
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, color: Colors.white, size: 80),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Erreur de chargement',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
               );
             },
           ),

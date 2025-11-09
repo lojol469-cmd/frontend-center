@@ -475,6 +475,7 @@ class _MapViewPageState extends State<MapViewPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'map_location',
         backgroundColor: const Color(0xFF00D4FF),
         onPressed: () {
           _mapController.move(_currentPosition, 13.0);

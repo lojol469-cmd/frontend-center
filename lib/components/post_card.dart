@@ -11,6 +11,7 @@ class PostCard extends StatefulWidget {
   final int comments;
   final int shares;
   final String? imageUrl;
+  final String? userAvatar;
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onShare;
@@ -25,6 +26,7 @@ class PostCard extends StatefulWidget {
     required this.comments,
     required this.shares,
     this.imageUrl,
+    this.userAvatar,
     required this.onLike,
     required this.onComment,
     required this.onShare,
@@ -90,11 +92,75 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               gradient: const LinearGradient(
                 colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
               ),
+              border: Border.all(
+                color: Colors.white,
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            child: const Icon(
-              Icons.person_rounded,
-              color: Colors.black,
-              size: 24,
+            child: ClipOval(
+              child: widget.userAvatar != null && widget.userAvatar!.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: widget.userAvatar!,
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: const Color(0xFF00FF88),
+                        child: Center(
+                          child: Text(
+                            widget.userName.isNotEmpty 
+                                ? widget.userName[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) {
+                        debugPrint('❌ Erreur chargement avatar: $error');
+                        debugPrint('📸 URL avatar: $url');
+                        return Container(
+                          color: const Color(0xFF00FF88),
+                          child: Center(
+                            child: Text(
+                              widget.userName.isNotEmpty 
+                                  ? widget.userName[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: const Color(0xFF00FF88),
+                      child: Center(
+                        child: Text(
+                          widget.userName.isNotEmpty 
+                              ? widget.userName[0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 12),
@@ -112,7 +178,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                 ),
                 Text(
                   '${widget.userRole} • ${widget.timeAgo}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.black54,
                     fontSize: 12,
                   ),
@@ -122,7 +188,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
           ),
           IconButton(
             onPressed: () => _showPostOptions(),
-            icon: Icon(
+            icon: const Icon(
               Icons.more_vert_rounded,
               color: Colors.black54,
             ),

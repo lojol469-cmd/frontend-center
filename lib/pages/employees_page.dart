@@ -1,10 +1,13 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../components/futuristic_card.dart';
 import '../components/employee_card.dart';
 import '../components/department_chip.dart';
 import '../api_service.dart';
+import '../main.dart';
 import 'employees/employee_detail_page.dart';
 import 'employees/department_employees_page.dart';
 import 'total_employees_page.dart';
@@ -21,7 +24,7 @@ class EmployeesPage extends StatefulWidget {
   State<EmployeesPage> createState() => _EmployeesPageState();
 }
 
-class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateMixin {
+class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateMixin, WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
   String _selectedDepartment = 'Tous';
   String _selectedStatus = 'tous';
@@ -30,6 +33,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
   late TabController _tabController;
   List<Map<String, dynamic>> _employees = [];
   bool _isLoading = false;
+  StreamSubscription? _webSocketSubscription;
 
   final List<String> _departments = [
     'Tous',
@@ -58,8 +62,32 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 3, vsync: this);
     _loadEmployees();
+    _listenToWebSocket();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Recharger quand l'app revient au premier plan
+    if (state == AppLifecycleState.resumed) {
+      _loadEmployees();
+    }
+  }
+
+  void _listenToWebSocket() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    _webSocketSubscription = appProvider.webSocketStream.listen((message) {
+      // Recharger les employés lors de changements
+      if (message['type'] == 'employee_added' ||
+          message['type'] == 'employee_updated' ||
+          message['type'] == 'employee_deleted' ||
+          message['type'] == 'employee_status_changed') {
+        _loadEmployees();
+      }
+    });
   }
 
   Future<void> _loadEmployees() async {
@@ -111,6 +139,8 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _webSocketSubscription?.cancel();
     _searchController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -150,6 +180,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'add_employee',
         onPressed: _showAddEmployeeDialog,
         backgroundColor: const Color(0xFFFF6B35),
         foregroundColor: Colors.black,

@@ -27,6 +27,8 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   // État de chargement et données depuis l'API
   bool _isLoading = false;
   List<dynamic> _publications = [];
+  List<Map<String, dynamic>> _stories = [];
+  bool _isLoadingStories = false;
   String? _error;
   int _currentPage = 1;
   bool _hasMore = true;
@@ -67,6 +69,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     });
 
     _loadPublications();
+    _loadStories();
     _listenToWebSocket();
   }
 
@@ -76,6 +79,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     // Recharger quand l'app revient au premier plan
     if (state == AppLifecycleState.resumed) {
       _loadPublications();
+      _loadStories();
     }
   }
 
@@ -90,16 +94,24 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
       if (message['type'] == 'new_publication') {
         _loadPublications();
       }
+      // Recharger les stories quand une nouvelle est créée
+      if (message['type'] == 'new_story') {
+        _loadStories();
+      }
     });
   }
 
   Future<void> _loadPublications() async {
-    if (_isLoading) return;
+    if (_isLoading) {
+      debugPrint('⏳ Chargement déjà en cours, skip');
+      return;
+    }
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final token = appProvider.accessToken;
 
     if (token == null) {
+      debugPrint('❌ Token absent');
       setState(() {
         _error = 'Non authentifié';
         _isLoading = false;
@@ -107,6 +119,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
       return;
     }
 
+    debugPrint('🔄 Début chargement publications...');
     setState(() {
       _isLoading = true;
       _error = null;
@@ -114,6 +127,8 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
 
     try {
       final result = await ApiService.getPublications(token, page: 1, limit: 20);
+      debugPrint('📦 Publications reçues: ${result['publications']?.length ?? 0}');
+      
       if (mounted) {
         setState(() {
           _publications = result['publications'] ?? [];
@@ -121,15 +136,58 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
           _hasMore = (result['pagination']?['currentPage'] ?? 1) < (result['pagination']?['totalPages'] ?? 1);
           _isLoading = false;
         });
+        debugPrint('✅ État mis à jour avec ${_publications.length} publications');
+      } else {
+        debugPrint('⚠️ Widget non monté, pas de mise à jour');
       }
     } catch (e) {
+      debugPrint('❌ Erreur chargement publications: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
           _isLoading = false;
         });
       }
-      debugPrint('Erreur chargement publications: $e');
+    }
+  }
+
+  Future<void> _loadStories() async {
+    if (_isLoadingStories) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) return;
+
+    setState(() {
+      _isLoadingStories = true;
+    });
+
+    try {
+      final result = await ApiService.getStories(token);
+      debugPrint('📊 Stories reçues: ${result['stories']?.length ?? 0}');
+      debugPrint('📊 Données: $result');
+      
+      if (mounted) {
+        setState(() {
+          _stories = (result['stories'] as List<dynamic>?)
+              ?.map((s) => s as Map<String, dynamic>)
+              .toList() ?? [];
+          _isLoadingStories = false;
+          
+          debugPrint('📊 Stories stockées: ${_stories.length}');
+          if (_stories.isNotEmpty) {
+            debugPrint('📊 Première story: ${_stories[0]}');
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingStories = false;
+        });
+      }
+      debugPrint('❌ Erreur chargement stories: $e');
     }
   }
 
@@ -177,14 +235,32 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   }
 
   Future<void> _navigateToCreatePublication() async {
+    debugPrint('📝 Navigation vers création publication...');
+    
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const CreatePublicationPage()),
     );
 
+    debugPrint('📝 Retour de création publication: $result');
+
     // Si une publication a été créée, recharger
     if (result == true) {
-      _loadPublications();
+      debugPrint('📝 Rechargement des publications...');
+      try {
+        await _loadPublications();
+        debugPrint('✅ Publications rechargées avec succès');
+      } catch (e) {
+        debugPrint('❌ Erreur rechargement publications: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur de rechargement: $e'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -239,7 +315,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     ).then((result) {
       if (result == true) {
         // Recharger les stories si une nouvelle a été créée
-        setState(() {});
+        _loadStories();
       }
     });
   }
@@ -275,13 +351,14 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
           MaterialPageRoute(
             builder: (context) => StoryViewPage(
               token: token,
-              stories: stories,
+              stories: List.from(stories), // Créer une copie pour éviter les problèmes
               initialIndex: index < stories.length ? index : 0,
             ),
           ),
-        ).then((_) {
-          // Recharger les stories après visualisation
-          setState(() {});
+        ).then((result) {
+          // Recharger les stories après visualisation/suppression
+          debugPrint('📥 Retour de StoryViewPage, rechargement...');
+          _loadStories();
         });
       }
     } catch (e) {
@@ -289,6 +366,76 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur de chargement: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteStoryFromBubble(String storyId) async {
+    // Récupérer les données avant l'opération async
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) return;
+
+    // Demander confirmation
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text(
+          'Supprimer la story',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Voulez-vous vraiment supprimer cette story ?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      debugPrint('🗑️ Suppression de la story: $storyId');
+      await ApiService.deleteStory(token, storyId);
+      
+      if (mounted) {
+        // Recharger les stories
+        await _loadStories();
+        
+        // Vérifier mounted à nouveau après l'opération async
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Story supprimée avec succès'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur suppression story: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -501,29 +648,211 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
             const SizedBox(height: 16),
             SizedBox(
               height: 120,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: 8,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: StoryCircle(
-                      name: index == 0 ? 'Votre Story' : 'Utilisateur',
-                      imageUrl: '',
-                      isOwn: index == 0,
-                      hasStory: index != 0,
-                      onTap: () {
+              child: _isLoadingStories
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF00D4FF),
+                      ),
+                    )
+                  : ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: _stories.length + 1, // +1 pour "Votre Story"
+                      itemBuilder: (context, index) {
                         if (index == 0) {
-                          _navigateToCreateStory();
-                        } else {
-                          _navigateToViewStory(index);
+                          // Premier cercle : créer sa story
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: StoryCircle(
+                              name: 'Votre Story',
+                              imageUrl: '',
+                              isOwn: true,
+                              hasStory: false,
+                              onTap: _navigateToCreateStory,
+                            ),
+                          );
                         }
+
+                        final story = _stories[index - 1];
+                        final user = story['user'] as Map<String, dynamic>?;
+                        final appProvider = Provider.of<AppProvider>(context, listen: false);
+                        
+                        // Vérifier ownership - extraire l'ID correctement
+                        final storyUserIdData = story['userId'];
+                        String? storyUserId;
+                        
+                        // Si userId est un objet (populate), extraire l'_id
+                        if (storyUserIdData is Map) {
+                          storyUserId = storyUserIdData['_id'] as String?;
+                        } else if (storyUserIdData is String) {
+                          storyUserId = storyUserIdData;
+                        }
+                        
+                        final currentUserId = appProvider.currentUser?['_id'] as String?;
+                        final isOwnStory = storyUserId != null && currentUserId != null && storyUserId == currentUserId;
+                        
+                        debugPrint('🔍 Story ownership check:');
+                        debugPrint('   Story userId data: $storyUserIdData (type: ${storyUserIdData.runtimeType})');
+                        debugPrint('   Story userId extracted: $storyUserId');
+                        debugPrint('   Current user ID: $currentUserId');
+                        debugPrint('   Is own story: $isOwnStory');
+                        
+                        // Récupérer le nom de l'utilisateur
+                        String userName = 'Utilisateur';
+                        if (user != null) {
+                          userName = user['name'] as String? ?? '';
+                          
+                          // Si le nom est vide, utiliser l'email
+                          if (userName.isEmpty) {
+                            final email = user['email'] as String? ?? '';
+                            userName = email.isNotEmpty ? email.split('@')[0] : 'Utilisateur';
+                          }
+                        }
+                        
+                        debugPrint('👤 Story user: ${user?['name']} / ${user?['email']}');
+                        
+                        // Déterminer l'URL de preview selon le type de story
+                        String previewUrl = '';
+                        final mediaType = story['mediaType'] ?? story['type'] ?? '';
+                        if (mediaType == 'image' || mediaType == 'video') {
+                          previewUrl = story['mediaUrl'] ?? '';
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: _buildStoryBubble(
+                            userName: userName,
+                            previewUrl: previewUrl,
+                            backgroundColor: mediaType == 'text' 
+                                ? Color(int.parse(story['backgroundColor']?.replaceAll('#', '0xFF') ?? '0xFF1A1A2E'))
+                                : null,
+                            hasViewed: story['viewedBy']?.contains(user?['_id']) ?? false,
+                            onTap: () => _navigateToViewStory(index - 1),
+                            storyId: story['_id'] as String?,
+                            isOwnStory: isOwnStory,
+                          ),
+                        );
                       },
                     ),
-                  );
-                },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStoryBubble({
+    required String userName,
+    required String previewUrl,
+    Color? backgroundColor,
+    required bool hasViewed,
+    required VoidCallback onTap,
+    String? storyId,
+    bool isOwnStory = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 80,
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: hasViewed
+                        ? LinearGradient(
+                            colors: [Colors.grey.shade600, Colors.grey.shade400],
+                          )
+                        : const LinearGradient(
+                            colors: [Color(0xFFFF6B35), Color(0xFFFF8A65)],
+                          ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: hasViewed 
+                            ? Colors.grey.withValues(alpha: 0.2)
+                            : const Color(0xFFFF6B35).withValues(alpha: 0.3),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: backgroundColor ?? const Color(0xFF1A1A2E),
+                      image: previewUrl.isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(previewUrl),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: previewUrl.isEmpty && backgroundColor == null
+                        ? const Icon(
+                            Icons.person,
+                            color: Colors.white54,
+                            size: 35,
+                          )
+                        : null,
+                  ),
+                ),
+                // TEMPORAIRE: Bouton de suppression TOUJOURS visible pour test
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () {
+                      debugPrint('🗑️ Bouton suppression cliqué pour story: $storyId');
+                      debugPrint('   isOwnStory: $isOwnStory');
+                      if (storyId != null) {
+                        _deleteStoryFromBubble(storyId);
+                      }
+                    },
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: isOwnStory ? Colors.red.shade600 : Colors.orange.shade600,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        isOwnStory ? Icons.close : Icons.info,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              userName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -606,7 +935,29 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
 
             final pub = _publications[index];
             final userId = pub['userId'] ?? {};
-            final userName = userId['name'] ?? 'Utilisateur';
+            
+            // 🔍 LOGS DE DEBUG
+            debugPrint('📊 Publication data: ${pub.toString()}');
+            debugPrint('👤 userId: ${userId.toString()}');
+            debugPrint('📝 Keys in userId: ${userId.keys?.toList()}');
+            
+            // Récupérer le nom depuis le champ 'name' ou extraire de l'email
+            String userName = 'Utilisateur';
+            if (userId['name'] != null && userId['name'].toString().isNotEmpty) {
+              userName = userId['name'].toString();
+            } else {
+              // Fallback sur email si name est vide
+              final email = userId['email']?.toString() ?? '';
+              if (email.isNotEmpty) {
+                userName = email.split('@')[0]; // Prendre la partie avant @
+              }
+            }
+            debugPrint('✅ userName final: $userName');
+            
+            // Récupérer la photo de profil depuis profileImage
+            final userAvatar = userId['profileImage'];
+            debugPrint('📸 userAvatar: $userAvatar');
+            
             final userEmail = userId['email'] ?? '';
             final content = pub['content'] ?? '';
             final likes = (pub['likes'] as List?)?.length ?? 0;
@@ -656,6 +1007,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                 comments: comments,
                 shares: 0, // Backend doesn't have shares yet
                 imageUrl: imageUrl,
+                userAvatar: userAvatar,
                 onLike: () => _likePublication(publicationId),
                 onComment: () => _showCommentsDialog(publicationId, content),
                 onShare: () => _sharePublication(publicationId),

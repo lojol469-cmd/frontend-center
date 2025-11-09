@@ -65,8 +65,11 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         _filteredStories = _stories;
       } else {
         _filteredStories = _stories.where((story) {
-          final userName = '${story['user']?['firstName'] ?? ''} ${story['user']?['lastName'] ?? ''}';
-          return userName.toLowerCase().contains(query.toLowerCase());
+          final user = story['user'] as Map<String, dynamic>?;
+          final userName = user?['name'] as String? ?? '';
+          final email = user?['email'] as String? ?? '';
+          final searchName = userName.isEmpty ? email.split('@')[0] : userName;
+          return searchName.toLowerCase().contains(query.toLowerCase());
         }).toList();
       }
     });
@@ -200,9 +203,23 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
   }
 
   Widget _buildStoryCard(Map<String, dynamic> story, int index) {
-    final user = story['user'] ?? {};
-    final userName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
-    final userImage = user['faceImage'] ?? user['avatar'] ?? '';
+    final user = story['user'] as Map<String, dynamic>?;
+    
+    // Récupérer le nom de l'utilisateur
+    String userName = 'Utilisateur';
+    if (user != null) {
+      userName = user['name'] as String? ?? '';
+      
+      // Si le nom est vide, utiliser l'email
+      if (userName.isEmpty) {
+        final email = user['email'] as String? ?? '';
+        userName = email.isNotEmpty ? email.split('@')[0] : 'Utilisateur';
+      }
+    }
+    
+    debugPrint('👤 Story user: ${user?['name']} / ${user?['email']} -> $userName');
+    
+    final profileImage = user?['profileImage'] as String? ?? '';
     final storyImage = story['imageUrl'] ?? story['mediaUrl'] ?? '';
     final timeAgo = _formatTimeAgo(story['createdAt']);
     final isViewed = story['isViewed'] ?? false;
@@ -224,11 +241,15 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
           MaterialPageRoute(
             builder: (context) => StoryViewPage(
               token: token,
-              stories: _filteredStories,
+              stories: List.from(_filteredStories), // Créer une copie pour éviter les problèmes
               initialIndex: index,
             ),
           ),
-        ).then((_) => _loadStories());
+        ).then((result) {
+          // Recharger les stories après la visualisation/suppression
+          debugPrint('📥 Retour de StoryViewPage, rechargement...');
+          _loadStories();
+        });
       },
       child: Container(
         decoration: BoxDecoration(
@@ -321,10 +342,10 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                     CircleAvatar(
                       radius: 18,
                       backgroundColor: const Color(0xFF00D4FF),
-                      backgroundImage: userImage.isNotEmpty
-                          ? NetworkImage(userImage)
+                      backgroundImage: profileImage.isNotEmpty
+                          ? NetworkImage(profileImage)
                           : null,
-                      child: userImage.isEmpty
+                      child: profileImage.isEmpty
                           ? Text(
                               userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
                               style: const TextStyle(
@@ -340,7 +361,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            userName.isEmpty ? 'Utilisateur' : userName,
+                            userName,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13,

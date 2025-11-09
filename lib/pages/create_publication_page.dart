@@ -129,6 +129,8 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
     setState(() => _isPublishing = true);
 
     try {
+      debugPrint('🚀 Début création publication...');
+      
       // Créer la publication avec géolocalisation
       final result = await ApiService.createPublication(
         token,
@@ -138,15 +140,33 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
         longitude: _currentPosition?.longitude,
       );
 
-      debugPrint('✅ Publication créée: ${result['publication']['_id']}');
+      debugPrint('✅ Publication créée: ${result['publication']?['_id']}');
 
       if (mounted) {
-        _showMessage('✅ Publication créée avec succès !');
-        Navigator.pop(context, true); // Retourner avec succès
+        // Afficher le message de succès
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Publication créée avec succès !'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        debugPrint('🔙 Retour à la page précédente...');
+        
+        // Attendre un peu pour que le snackbar s'affiche
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Retourner avec succès
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
       debugPrint('❌ Erreur publication: $e');
-      _showMessage('Erreur: $e');
+      if (mounted) {
+        _showMessage('Erreur lors de la publication: ${e.toString()}');
+      }
     } finally {
       if (mounted) {
         setState(() => _isPublishing = false);

@@ -561,6 +561,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     accessToken,
     refreshToken,
     user: { 
+      _id: user._id.toString(), // Ajout de l'ID utilisateur
       email: user.email, 
       name: user.name, 
       profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : '', 
@@ -628,6 +629,7 @@ app.post('/api/auth/admin-login', async (req, res) => {
       accessToken,
       refreshToken,
       user: { 
+        _id: user._id.toString(), // Ajout de l'ID utilisateur
         email: user.email, 
         name: user.name, 
         profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : '', 
@@ -877,11 +879,28 @@ app.get('/api/publications', verifyToken, async (req, res) => {
     .skip(skip)
     .limit(limit);
 
+  // Transformer les données pour ajouter l'URL complète des avatars
+  const publicationsWithFullUrls = publications.map(pub => {
+    const pubObj = pub.toObject();
+    console.log('📸 Publication userId:', pubObj.userId);
+    if (pubObj.userId) {
+      console.log('  - name:', pubObj.userId.name);
+      console.log('  - email:', pubObj.userId.email);
+      console.log('  - profileImage original:', pubObj.userId.profileImage);
+      
+      if (pubObj.userId.profileImage && !pubObj.userId.profileImage.startsWith('http')) {
+        pubObj.userId.profileImage = `${BASE_URL}/${pubObj.userId.profileImage}`;
+        console.log('  ✅ profileImage transformé:', pubObj.userId.profileImage);
+      }
+    }
+    return pubObj;
+  });
+
   const total = await Publication.countDocuments({ isActive: true });
 
   console.log('✅ Publications trouvées:', publications.length, '/', total);
   res.json({
-    publications,
+    publications: publicationsWithFullUrls,
     pagination: { currentPage: page, totalPages: Math.ceil(total / limit), total }
   });
 });
@@ -890,7 +909,19 @@ app.get('/api/publications/user/:userId', verifyToken, async (req, res) => {
   const publications = await Publication.find({ userId: req.params.userId, isActive: true })
     .populate('userId', 'name email profileImage')
     .sort({ createdAt: -1 });
-  res.json({ publications });
+  
+  // Transformer les données pour ajouter l'URL complète des avatars
+  const publicationsWithFullUrls = publications.map(pub => {
+    const pubObj = pub.toObject();
+    if (pubObj.userId) {
+      if (pubObj.userId.profileImage && !pubObj.userId.profileImage.startsWith('http')) {
+        pubObj.userId.profileImage = `${BASE_URL}/${pubObj.userId.profileImage}`;
+      }
+    }
+    return pubObj;
+  });
+  
+  res.json({ publications: publicationsWithFullUrls });
 });
 
 app.get('/api/publications/:id', verifyToken, async (req, res) => {
@@ -2581,7 +2612,7 @@ app.get('/api/stories', verifyToken, async (req, res) => {
     const stories = await Story.find({
       createdAt: { $gte: twentyFourHoursAgo }
     })
-      .populate('userId', 'firstName lastName faceImage avatar')
+      .populate('userId', 'name email profileImage')
       .sort({ createdAt: -1 });
 
     // Marquer les stories comme vues par l'utilisateur actuel
@@ -2593,17 +2624,18 @@ app.get('/api/stories', verifyToken, async (req, res) => {
         mediaUrl: story.mediaUrl,
         mediaType: story.mediaType,
         backgroundColor: story.backgroundColor,
+        userId: story.userId._id, // ID du propriétaire pour vérification ownership
         user: {
           _id: story.userId._id,
-          firstName: story.userId.firstName,
-          lastName: story.userId.lastName,
-          faceImage: story.userId.faceImage,
-          avatar: story.userId.avatar
+          name: story.userId.name,
+          email: story.userId.email,
+          profileImage: story.userId.profileImage
         },
         createdAt: story.createdAt,
         expiresAt: story.expiresAt,
         viewCount: story.viewedBy?.length || 0,
-        isViewed: isViewed
+        isViewed: isViewed,
+        viewedBy: story.viewedBy || []
       };
     });
 
@@ -2655,7 +2687,16 @@ app.post('/api/stories', verifyToken, storyUpload.single('media'), async (req, r
     console.log('✅ Story sauvegardée:', newStory._id);
 
     const populatedStory = await Story.findById(newStory._id)
-      .populate('userId', 'name email profileImage');
+      .populate('userId', 'firstName lastName faceImage avatar email');
+
+    // Vérifier que l'utilisateur existe et a été populé
+    if (!populatedStory.userId) {
+      console.error('❌ Utilisateur non trouvé pour la story');
+      return res.status(500).json({ 
+        message: 'Erreur lors de la récupération des informations utilisateur',
+        error: 'User not found'
+      });
+    }
 
     // Notifier via WebSocket
     const storyData = {
@@ -2669,16 +2710,18 @@ app.post('/api/stories', verifyToken, storyUpload.single('media'), async (req, r
         duration: populatedStory.duration,
         userId: {
           _id: populatedStory.userId._id,
-          name: populatedStory.userId.name,
-          email: populatedStory.userId.email,
-          profileImage: populatedStory.userId.profileImage
+          firstName: populatedStory.userId.firstName || '',
+          lastName: populatedStory.userId.lastName || '',
+          email: populatedStory.userId.email || '',
+          faceImage: populatedStory.userId.faceImage || null,
+          avatar: populatedStory.userId.avatar || null
         },
         createdAt: populatedStory.createdAt,
         expiresAt: populatedStory.expiresAt
       }
     };
     
-    broadcast(storyData);
+    broadcastToAll(storyData);
 
     res.status(201).json({
       success: true,
@@ -2749,8 +2792,8 @@ app.delete('/api/stories/:id', verifyToken, async (req, res) => {
     await Story.deleteOne({ _id: req.params.id });
 
     // Notifier via WebSocket
-    broadcast({
-      type: 'delete_story',
+    broadcastToAll({
+      type: 'story_deleted',
       storyId: req.params.id
     });
 
