@@ -38,6 +38,7 @@ class _MediaPlayerState extends State<MediaPlayer> {
   String _errorMessage = '';
   bool _showControls = true;
   Timer? _controlsTimer;
+  bool _hasCalledOnFinished = false; // Protection contre appels multiples
 
   @override
   void initState() {
@@ -154,13 +155,21 @@ class _MediaPlayerState extends State<MediaPlayer> {
         return;
       }
 
-      // Check if video finished
+      // Check if video finished - avec tolérance de 500ms
       final position = _controller!.value.position;
       final duration = _controller!.value.duration;
       
-      if (position >= duration && duration > Duration.zero) {
-        if (!widget.loop) {
-          widget.onFinished?.call();
+      // Vérifier que la durée est valide et que la position est vraiment à la fin
+      if (duration > Duration.zero && position.inMilliseconds > 0) {
+        final remaining = duration.inMilliseconds - position.inMilliseconds;
+        
+        // La vidéo est considérée terminée seulement si il reste moins de 500ms
+        if (remaining < 500 && remaining >= 0 && !_hasCalledOnFinished) {
+          if (!widget.loop && !_controller!.value.isPlaying) {
+            debugPrint('✅ Video reached end (${position.inSeconds}s/${duration.inSeconds}s), calling onFinished');
+            _hasCalledOnFinished = true;
+            widget.onFinished?.call();
+          }
         }
       }
 

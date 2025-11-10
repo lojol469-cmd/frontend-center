@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../api_service.dart';
-import '../components/story_video_player.dart';
+import '../components/media_player.dart';
 
 class StoryViewPage extends StatefulWidget {
   final String token;
@@ -658,13 +658,17 @@ class _StoryViewPageState extends State<StoryViewPage> {
       );
     } else if (mediaType == 'video' && mediaUrl.isNotEmpty) {
       debugPrint('🎥 Creating video player for: $mediaUrl');
-      debugPrint('   Is paused: $_isPaused');
+      debugPrint('   Current story index: $_currentStoryIndex');
+      // Clé unique basée sur l'URL ET l'index pour forcer reconstruction
+      final playerKey = Key('video_${_currentStoryIndex}_$mediaUrl');
       return Stack(
         fit: StackFit.expand,
         children: [
-          StoryVideoPlayer(
-            url: mediaUrl,
-            isPaused: _isPaused,
+          // Widget avec clé unique pour forcer dispose/init complet
+          _StoryVideoPlayer(
+            key: playerKey,
+            videoUrl: mediaUrl,
+            storyIndex: _currentStoryIndex,
             onFinished: () {
               debugPrint('✅ Video finished, going to next story');
               if (mounted && !_isPaused) {
@@ -753,5 +757,68 @@ class _StoryViewPageState extends State<StoryViewPage> {
     } catch (e) {
       return 'Maintenant';
     }
+  }
+}
+
+// Widget isolé pour gérer le cycle de vie des vidéos
+class _StoryVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+  final int storyIndex;
+  final VoidCallback onFinished;
+  final VoidCallback onError;
+
+  const _StoryVideoPlayer({
+    super.key,
+    required this.videoUrl,
+    required this.storyIndex,
+    required this.onFinished,
+    required this.onError,
+  });
+
+  @override
+  State<_StoryVideoPlayer> createState() => _StoryVideoPlayerState();
+}
+
+class _StoryVideoPlayerState extends State<_StoryVideoPlayer> {
+  bool _hasFinished = false;
+
+  @override
+  void initState() {
+    super.initState();
+    debugPrint('🎬 _StoryVideoPlayer initState for story ${widget.storyIndex}');
+  }
+
+  @override
+  void dispose() {
+    debugPrint('🗑️ _StoryVideoPlayer dispose for story ${widget.storyIndex}');
+    super.dispose();
+  }
+
+  void _handleFinished() {
+    if (_hasFinished) return;
+    _hasFinished = true;
+    debugPrint('✅ Video ${widget.storyIndex} finished callback');
+    widget.onFinished();
+  }
+
+  void _handleError() {
+    if (_hasFinished) return;
+    _hasFinished = true;
+    debugPrint('❌ Video ${widget.storyIndex} error callback');
+    widget.onError();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MediaPlayer(
+      url: widget.videoUrl,
+      type: MediaType.video,
+      autoPlay: true,
+      loop: false,
+      showControls: false,
+      aspectRatio: 9 / 16,
+      onFinished: _handleFinished,
+      onError: _handleError,
+    );
   }
 }
