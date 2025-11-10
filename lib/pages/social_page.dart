@@ -554,17 +554,17 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     }
   }
 
-  Future<void> _deleteStoryFromBubble(String storyId) async {
-    // Récupérer les données avant l'opération async
+  Future<void> _deleteStory(String storyId) async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final token = appProvider.accessToken;
+    final messenger = ScaffoldMessenger.of(context);
 
     if (token == null) return;
 
     // Demander confirmation
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text(
           'Supprimer la story',
@@ -576,11 +576,11 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Annuler'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
             ),
@@ -600,21 +600,24 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
         // Recharger les stories
         await _loadStories();
         
-        // Vérifier mounted à nouveau après l'opération async
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Story supprimée avec succès'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Story supprimée avec succès'),
+              ],
             ),
-          );
-        }
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       debugPrint('❌ Erreur suppression story: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),
             backgroundColor: Colors.red,
@@ -664,6 +667,64 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              // Bouton Rafraîchir
+              FloatingActionButton(
+                heroTag: 'refresh',
+                onPressed: () async {
+                  // Capturer le ScaffoldMessenger avant l'opération async
+                  final messenger = ScaffoldMessenger.of(context);
+                  
+                  // Afficher un indicateur de chargement
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text('Actualisation...'),
+                        ],
+                      ),
+                      duration: Duration(seconds: 1),
+                      backgroundColor: Color(0xFF00D4FF),
+                    ),
+                  );
+                  
+                  // Recharger les données
+                  _currentPage = 1;
+                  _hasMore = true;
+                  await Future.wait([
+                    _loadPublications(),
+                    _loadStories(),
+                  ]);
+                  
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.white),
+                            SizedBox(width: 12),
+                            Text('Actualisé avec succès'),
+                          ],
+                        ),
+                        duration: Duration(seconds: 1),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                backgroundColor: const Color(0xFF9C27B0),
+                mini: true,
+                child: const Icon(Icons.refresh, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
               // Bouton Carte
               FloatingActionButton(
                 heroTag: 'map',
@@ -920,176 +981,30 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                         
                         debugPrint('👤 Story user: ${user?['name']} / ${user?['email']}');
                         
-                        // Déterminer l'URL de preview selon le type de story
-                        String previewUrl = '';
+                        // Récupérer les informations media
                         final mediaType = story['mediaType'] ?? story['type'] ?? '';
+                        final mediaUrl = story['mediaUrl'] ?? '';
+                        final profileImage = user?['profileImage'] as String? ?? '';
+                        final fullProfileImage = _getFullUrl(profileImage);
+                        final storyId = story['_id'] as String?;
                         
-                        if (mediaType == 'image') {
-                          // Pour les images, utiliser l'image de la story
-                          previewUrl = story['mediaUrl'] ?? '';
-                        } else if (mediaType == 'video') {
-                          // Pour les vidéos, utiliser l'image de profil de l'utilisateur comme preview
-                          final rawProfileImage = user?['profileImage'] as String? ?? '';
-                          previewUrl = _getFullUrl(rawProfileImage);
-                        }
-
                         return Padding(
                           padding: const EdgeInsets.only(right: 12),
-                          child: _buildStoryBubble(
-                            userName: userName,
-                            previewUrl: previewUrl,
-                            mediaType: mediaType, // Passer le type de média
-                            backgroundColor: mediaType == 'text' 
-                                ? Color(int.parse(story['backgroundColor']?.replaceAll('#', '0xFF') ?? '0xFF1A1A2E'))
-                                : null,
-                            hasViewed: story['viewedBy']?.contains(user?['_id']) ?? false,
+                          child: StoryCircle(
+                            name: userName,
+                            imageUrl: fullProfileImage,
+                            isOwn: isOwnStory,
+                            hasStory: true,
+                            mediaUrl: mediaUrl.isNotEmpty ? _getFullUrl(mediaUrl) : null,
+                            mediaType: mediaType.isNotEmpty ? mediaType : null,
                             onTap: () => _navigateToViewStory(index - 1),
-                            storyId: story['_id'] as String?,
-                            isOwnStory: isOwnStory,
+                            onDelete: isOwnStory && storyId != null 
+                                ? () => _deleteStory(storyId)
+                                : null,
                           ),
                         );
                       },
                     ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStoryBubble({
-    required String userName,
-    required String previewUrl,
-    String? mediaType, // Type de média: 'video', 'image', 'text'
-    Color? backgroundColor,
-    required bool hasViewed,
-    required VoidCallback onTap,
-    String? storyId,
-    bool isOwnStory = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 80,
-        child: Column(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: hasViewed
-                        ? LinearGradient(
-                            colors: [Colors.grey.shade600, Colors.grey.shade400],
-                          )
-                        : const LinearGradient(
-                            colors: [Color(0xFFFF6B35), Color(0xFFFF8A65)],
-                          ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: hasViewed 
-                            ? Colors.grey.withValues(alpha: 0.2)
-                            : const Color(0xFFFF6B35).withValues(alpha: 0.3),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(3),
-                  child: Stack(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: backgroundColor ?? const Color(0xFF1A1A2E),
-                          image: previewUrl.isNotEmpty
-                              ? DecorationImage(
-                                  image: NetworkImage(previewUrl),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: previewUrl.isEmpty && backgroundColor == null
-                            ? const Icon(
-                                Icons.person,
-                                color: Colors.white54,
-                                size: 35,
-                              )
-                            : null,
-                      ),
-                      // Icône play pour les vidéos
-                      if (mediaType == 'video' && previewUrl.isNotEmpty)
-                        Center(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.play_arrow_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                // TEMPORAIRE: Bouton de suppression TOUJOURS visible pour test
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: GestureDetector(
-                    onTap: () {
-                      debugPrint('🗑️ Bouton suppression cliqué pour story: $storyId');
-                      debugPrint('   isOwnStory: $isOwnStory');
-                      if (storyId != null) {
-                        _deleteStoryFromBubble(storyId);
-                      }
-                    },
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: isOwnStory ? Colors.red.shade600 : Colors.orange.shade600,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 2.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        isOwnStory ? Icons.close : Icons.info,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              userName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
             ),
           ],
         ),

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -60,6 +62,10 @@ class _MediaPlayerState extends State<MediaPlayer> {
     try {
       debugPrint('🎬 Initializing media player: ${widget.url}');
       
+      // Vérifier la plateforme
+      String platformInfo = kIsWeb ? 'Web' : Platform.operatingSystem;
+      debugPrint('🖥️ Platform: $platformInfo');
+      
       // Clean URL and ensure proper format
       String cleanUrl = widget.url.trim();
       if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
@@ -69,12 +75,27 @@ class _MediaPlayerState extends State<MediaPlayer> {
       Uri videoUri = Uri.parse(cleanUrl);
       debugPrint('📍 Parsed URI: $videoUri');
       
+      // Configuration spécifique selon la plateforme
+      VideoPlayerOptions playerOptions = VideoPlayerOptions(
+        mixWithOthers: true,
+        allowBackgroundPlayback: false,
+      );
+      
+      // Sur Windows, on peut avoir besoin de configurations spéciales
+      if (!kIsWeb && Platform.isWindows) {
+        debugPrint('🪟 Configuring for Windows platform');
+        playerOptions = VideoPlayerOptions(
+          mixWithOthers: false,
+          allowBackgroundPlayback: false,
+        );
+      }
+      
       _controller = VideoPlayerController.networkUrl(
         videoUri,
-        videoPlayerOptions: VideoPlayerOptions(
-          mixWithOthers: true,
-          allowBackgroundPlayback: false,
-        ),
+        videoPlayerOptions: playerOptions,
+        httpHeaders: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
       );
       
       debugPrint('⏳ Waiting for initialization...');
@@ -87,7 +108,7 @@ class _MediaPlayerState extends State<MediaPlayer> {
       
       if (!mounted) return;
       
-      debugPrint('✅ Controller initialized');
+      debugPrint('✅ Controller initialized - Dimensions: ${_controller!.value.size}');
       
       setState(() {
         _isInitialized = true;
@@ -128,16 +149,23 @@ class _MediaPlayerState extends State<MediaPlayer> {
   }
 
   String _getFriendlyErrorMessage(String error) {
+    String platformInfo = kIsWeb ? 'Web' : Platform.operatingSystem;
+    
     if (error.contains('Timeout')) {
       return 'La vidéo met trop de temps à charger. Vérifiez votre connexion.';
     } else if (error.contains('404')) {
       return 'Vidéo introuvable sur le serveur.';
-    } else if (error.contains('network')) {
+    } else if (error.contains('network') || error.contains('Network')) {
       return 'Erreur réseau. Vérifiez votre connexion internet.';
-    } else if (error.contains('format')) {
+    } else if (error.contains('format') || error.contains('codec')) {
+      if (platformInfo == 'windows' || platformInfo == 'linux' || platformInfo == 'macos') {
+        return 'Format vidéo non supporté sur $platformInfo.\nEssayez de convertir en MP4 H.264.';
+      }
       return 'Format vidéo non supporté.';
+    } else if (error.contains('PlatformException') || error.contains('MissingPluginException')) {
+      return 'Plugin vidéo non configuré pour $platformInfo.\nContactez le support technique.';
     } else {
-      return 'Erreur lors du chargement de la vidéo.';
+      return 'Erreur lors du chargement de la vidéo.\nPlateforme: $platformInfo';
     }
   }
 

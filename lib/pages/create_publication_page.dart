@@ -301,9 +301,16 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
                       itemCount: _mediaFiles.length,
                       itemBuilder: (context, index) {
                         final file = _mediaFiles[index];
-                        final isVideo = file.path.toLowerCase().endsWith('.mp4') ||
-                            file.path.toLowerCase().endsWith('.mov') ||
-                            file.path.toLowerCase().endsWith('.avi');
+                        final fileName = file.path.toLowerCase();
+                        final isVideo = fileName.endsWith('.mp4') ||
+                            fileName.endsWith('.mov') ||
+                            fileName.endsWith('.avi') ||
+                            fileName.endsWith('.mkv') ||
+                            fileName.endsWith('.webm') ||
+                            fileName.endsWith('.flv') ||
+                            fileName.endsWith('.wmv') ||
+                            fileName.endsWith('.m4v') ||
+                            fileName.endsWith('.3gp');
                         
                         return Stack(
                           fit: StackFit.expand,
@@ -315,6 +322,32 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
                                   : Image.file(
                                       file,
                                       fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        debugPrint('❌ Erreur chargement image: $error');
+                                        return Container(
+                                          color: Colors.black87,
+                                          child: const Center(
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.broken_image_rounded,
+                                                  color: Colors.white54,
+                                                  size: 48,
+                                                ),
+                                                SizedBox(height: 8),
+                                                Text(
+                                                  'Erreur chargement',
+                                                  style: TextStyle(
+                                                    color: Colors.white54,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
                             ),
                             Positioned(

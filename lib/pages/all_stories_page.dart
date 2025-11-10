@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:typed_data';
+import 'package:video_thumbnail/video_thumbnail.dart';
 import '../main.dart';
 import '../api_service.dart';
 import 'create_story_page.dart';
@@ -204,6 +206,18 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
 
   Widget _buildStoryCard(Map<String, dynamic> story, int index) {
     final user = story['user'] as Map<String, dynamic>?;
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    
+    // Vérifier si c'est la story de l'utilisateur actuel
+    final storyUserIdData = story['userId'];
+    String? storyUserId;
+    if (storyUserIdData is Map) {
+      storyUserId = storyUserIdData['_id'] as String?;
+    } else if (storyUserIdData is String) {
+      storyUserId = storyUserIdData;
+    }
+    final currentUserId = appProvider.currentUser?['_id'] as String?;
+    final isOwnStory = storyUserId != null && currentUserId != null && storyUserId == currentUserId;
     
     // Récupérer le nom de l'utilisateur
     String userName = 'Utilisateur';
@@ -222,16 +236,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     final profileImage = user?['profileImage'] as String? ?? '';
     final mediaType = story['mediaType'] ?? story['type'] ?? 'text';
     final mediaUrl = story['mediaUrl'] ?? '';
-    
-    // Pour les vidéos, utiliser l'image de profil comme preview
-    // Pour les images, utiliser l'image de la story
-    String storyImage = '';
-    if (mediaType == 'image' && mediaUrl.isNotEmpty) {
-      storyImage = mediaUrl;
-    } else if (mediaType == 'video' && profileImage.isNotEmpty) {
-      // Pour les vidéos, on utilise la photo de profil comme miniature
-      storyImage = profileImage;
-    }
+    final storyId = story['_id'] as String?;
     
     final timeAgo = _formatTimeAgo(story['createdAt']);
     final isViewed = story['isViewed'] ?? false;
@@ -279,77 +284,92 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Image de fond
-              storyImage.isNotEmpty
-                  ? Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.network(
-                          storyImage,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    const Color(0xFF00D4FF).withValues(alpha: 0.3),
-                                    const Color(0xFF9C27B0).withValues(alpha: 0.3),
-                                  ],
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.image_not_supported,
-                                color: Colors.white54,
-                                size: 48,
-                              ),
-                            );
-                          },
-                        ),
-                        // Icône play pour les vidéos
-                        if (mediaType == 'video')
-                          Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.6),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.play_arrow_rounded,
-                                color: Colors.white,
-                                size: 48,
-                              ),
+              // Image ou vidéo de fond
+              if (mediaType == 'video' && mediaUrl.isNotEmpty)
+                // Miniature vidéo générée automatiquement
+                Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _StoryVideoThumbnailWidget(
+                      videoUrl: mediaUrl,
+                      fallbackImage: profileImage,
+                    ),
+                    // Icône play pour les vidéos
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00D4FF).withValues(alpha: 0.5),
+                              blurRadius: 20,
+                              spreadRadius: 5,
                             ),
-                          ),
-                      ],
-                    )
-                  : Container(
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Color(0xFF00D4FF),
+                          size: 48,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else if (mediaType == 'image' && mediaUrl.isNotEmpty)
+                // Image de la story
+                Image.network(
+                  mediaUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Color(int.tryParse(backgroundColor.replaceAll('#', '0xFF')) ?? 0xFF00D4FF).withValues(alpha: 0.5),
-                            const Color(0xFF9C27B0).withValues(alpha: 0.5),
+                            const Color(0xFF00D4FF).withValues(alpha: 0.3),
+                            const Color(0xFF9C27B0).withValues(alpha: 0.3),
                           ],
                         ),
                       ),
-                      child: Center(
-                        child: Text(
-                          story['content'] ?? '',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      child: const Icon(
+                        Icons.image_not_supported,
+                        color: Colors.white54,
+                        size: 48,
                       ),
+                    );
+                  },
+                )
+              else
+                // Story texte avec fond dégradé
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(int.tryParse(backgroundColor.replaceAll('#', '0xFF')) ?? 0xFF00D4FF).withValues(alpha: 0.5),
+                        const Color(0xFF9C27B0).withValues(alpha: 0.5),
+                      ],
                     ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      story['content'] ?? '',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
 
               // Gradient overlay
               Container(
@@ -446,11 +466,117 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                     ),
                   ),
                 ),
+              
+              // Bouton supprimer pour les propres stories
+              if (isOwnStory && storyId != null)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: GestureDetector(
+                    onTap: () => _deleteStory(storyId),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.delete_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _deleteStory(String storyId) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (token == null) return;
+
+    // Demander confirmation
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text(
+          'Supprimer la story',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Voulez-vous vraiment supprimer cette story ?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      debugPrint('🗑️ Suppression de la story: $storyId');
+      await ApiService.deleteStory(token, storyId);
+      
+      if (mounted) {
+        // Recharger les stories
+        await _loadStories();
+        
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Story supprimée avec succès'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur suppression story: $e');
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   String _formatTimeAgo(dynamic createdAt) {
@@ -467,5 +593,129 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     } catch (e) {
       return 'Maintenant';
     }
+  }
+}
+
+// Widget pour afficher la miniature d'une vidéo story
+class _StoryVideoThumbnailWidget extends StatefulWidget {
+  final String videoUrl;
+  final String? fallbackImage;
+
+  const _StoryVideoThumbnailWidget({
+    required this.videoUrl,
+    this.fallbackImage,
+  });
+
+  @override
+  State<_StoryVideoThumbnailWidget> createState() => _StoryVideoThumbnailWidgetState();
+}
+
+class _StoryVideoThumbnailWidgetState extends State<_StoryVideoThumbnailWidget> {
+  Uint8List? _thumbnailData;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _generateThumbnail();
+  }
+
+  Future<void> _generateThumbnail() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+
+      final thumbnailData = await VideoThumbnail.thumbnailData(
+        video: widget.videoUrl,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 300,
+        quality: 75,
+      );
+
+      if (mounted) {
+        setState(() {
+          _thumbnailData = thumbnailData;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur génération miniature story vidéo: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF00D4FF),
+            strokeWidth: 2,
+          ),
+        ),
+      );
+    }
+
+    if (_hasError || _thumbnailData == null) {
+      // Afficher l'image de profil en fallback
+      if (widget.fallbackImage != null && widget.fallbackImage!.isNotEmpty) {
+        return Image.network(
+          widget.fallbackImage!,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF00D4FF).withValues(alpha: 0.3),
+                    const Color(0xFF9C27B0).withValues(alpha: 0.3),
+                  ],
+                ),
+              ),
+              child: const Icon(
+                Icons.videocam_off,
+                color: Colors.white54,
+                size: 48,
+              ),
+            );
+          },
+        );
+      }
+
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF00D4FF).withValues(alpha: 0.3),
+              const Color(0xFF9C27B0).withValues(alpha: 0.3),
+            ],
+          ),
+        ),
+        child: const Icon(
+          Icons.videocam_off,
+          color: Colors.white54,
+          size: 48,
+        ),
+      );
+    }
+
+    return Image.memory(
+      _thumbnailData!,
+      fit: BoxFit.cover,
+    );
   }
 }

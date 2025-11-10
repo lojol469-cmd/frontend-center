@@ -410,15 +410,23 @@ class _CreateStoryPageState extends State<CreateStoryPage> {
           maxLines: null,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontSize: 28,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w900,
+            shadows: [
+              Shadow(
+                color: Colors.white,
+                blurRadius: 2,
+                offset: Offset(0, 0),
+              ),
+            ],
           ),
           decoration: const InputDecoration(
             hintText: 'Écrivez quelque chose...',
             hintStyle: TextStyle(
-              color: Colors.white70,
+              color: Colors.black54,
               fontSize: 28,
+              fontWeight: FontWeight.w600,
             ),
             border: InputBorder.none,
           ),
