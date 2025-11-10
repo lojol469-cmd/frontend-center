@@ -47,7 +47,10 @@ class _MediaPlayerState extends State<MediaPlayer> {
 
   @override
   void dispose() {
+    debugPrint('🗑️ Disposing media player');
     _controlsTimer?.cancel();
+    _controller?.removeListener(_videoListener);
+    _controller?.pause();
     _controller?.dispose();
     super.dispose();
   }
@@ -56,59 +59,117 @@ class _MediaPlayerState extends State<MediaPlayer> {
     try {
       debugPrint('🎬 Initializing media player: ${widget.url}');
       
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
-      
-      await _controller!.initialize();
-      
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-          _hasError = false;
-        });
-
-        _controller!.addListener(_videoListener);
-
-        if (widget.autoPlay) {
-          await _controller!.play();
-          setState(() => _isPlaying = true);
-        }
-
-        if (widget.loop) {
-          _controller!.setLooping(true);
-        }
-
-        // Auto-hide controls after 3 seconds
-        if (widget.showControls) {
-          _startControlsTimer();
-        }
+      // Clean URL and ensure proper format
+      String cleanUrl = widget.url.trim();
+      if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+        throw Exception('URL invalide: doit commencer par http:// ou https://');
       }
       
-      debugPrint('✅ Media player initialized successfully');
-    } catch (e) {
+      Uri videoUri = Uri.parse(cleanUrl);
+      debugPrint('📍 Parsed URI: $videoUri');
+      
+      _controller = VideoPlayerController.networkUrl(
+        videoUri,
+        videoPlayerOptions: VideoPlayerOptions(
+          mixWithOthers: true,
+          allowBackgroundPlayback: false,
+        ),
+      );
+      
+      debugPrint('⏳ Waiting for initialization...');
+      await _controller!.initialize().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Timeout: La vidéo met trop de temps à charger');
+        },
+      );
+      
+      if (!mounted) return;
+      
+      debugPrint('✅ Controller initialized');
+      
+      setState(() {
+        _isInitialized = true;
+        _hasError = false;
+      });
+
+      _controller!.addListener(_videoListener);
+
+      if (widget.loop) {
+        _controller!.setLooping(true);
+      }
+
+      if (widget.autoPlay) {
+        debugPrint('▶️ Auto-playing video...');
+        await _controller!.play();
+        if (mounted) {
+          setState(() => _isPlaying = true);
+        }
+      }
+
+      // Auto-hide controls after 3 seconds
+      if (widget.showControls) {
+        _startControlsTimer();
+      }
+      
+      debugPrint('✅ Media player fully initialized and playing: $_isPlaying');
+    } catch (e, stackTrace) {
       debugPrint('❌ Error initializing media player: $e');
+      debugPrint('Stack trace: $stackTrace');
       if (mounted) {
         setState(() {
           _hasError = true;
-          _errorMessage = e.toString();
+          _errorMessage = _getFriendlyErrorMessage(e.toString());
         });
         widget.onError?.call();
       }
     }
   }
 
-  void _videoListener() {
-    if (!mounted) return;
-
-    // Check if video finished
-    if (_controller!.value.position >= _controller!.value.duration) {
-      if (!widget.loop) {
-        widget.onFinished?.call();
-      }
+  String _getFriendlyErrorMessage(String error) {
+    if (error.contains('Timeout')) {
+      return 'La vidéo met trop de temps à charger. Vérifiez votre connexion.';
+    } else if (error.contains('404')) {
+      return 'Vidéo introuvable sur le serveur.';
+    } else if (error.contains('network')) {
+      return 'Erreur réseau. Vérifiez votre connexion internet.';
+    } else if (error.contains('format')) {
+      return 'Format vidéo non supporté.';
+    } else {
+      return 'Erreur lors du chargement de la vidéo.';
     }
+  }
 
-    // Update playing state
-    if (_controller!.value.isPlaying != _isPlaying) {
-      setState(() => _isPlaying = _controller!.value.isPlaying);
+  void _videoListener() {
+    if (!mounted || _controller == null) return;
+
+    try {
+      // Check for errors
+      if (_controller!.value.hasError) {
+        debugPrint('❌ Video player error: ${_controller!.value.errorDescription}');
+        setState(() {
+          _hasError = true;
+          _errorMessage = _getFriendlyErrorMessage(_controller!.value.errorDescription ?? 'Erreur inconnue');
+        });
+        return;
+      }
+
+      // Check if video finished
+      final position = _controller!.value.position;
+      final duration = _controller!.value.duration;
+      
+      if (position >= duration && duration > Duration.zero) {
+        if (!widget.loop) {
+          widget.onFinished?.call();
+        }
+      }
+
+      // Update playing state
+      if (_controller!.value.isPlaying != _isPlaying) {
+        setState(() => _isPlaying = _controller!.value.isPlaying);
+      }
+    } catch (e) {
+      debugPrint('❌ Error in video listener: $e');
     }
   }
 

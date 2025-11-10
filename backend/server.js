@@ -126,7 +126,8 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   status: { type: String, enum: ['active', 'blocked', 'admin'], default: 'active' },
   otp: { type: String },
-  otpExpires: { type: Date }
+  otpExpires: { type: Date },
+  savedPublications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Publication' }]
 });
 const User = mongoose.model('User', userSchema);
 
@@ -980,6 +981,75 @@ app.post('/api/publications/:id/like', verifyToken, async (req, res) => {
   await pub.save();
 
   res.json({ message: index > -1 ? 'Like retiré' : 'Liké', likesCount: pub.likes.length });
+});
+
+// Sauvegarder une publication
+app.post('/api/publications/:id/save', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    const pubId = req.params.id;
+    
+    if (user.savedPublications.includes(pubId)) {
+      return res.status(400).json({ message: 'Publication déjà sauvegardée' });
+    }
+    
+    user.savedPublications.push(pubId);
+    await user.save();
+    
+    res.json({ message: 'Publication sauvegardée', saved: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Retirer une publication des sauvegardées
+app.delete('/api/publications/:id/save', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    const pubId = req.params.id;
+    
+    const index = user.savedPublications.indexOf(pubId);
+    if (index === -1) {
+      return res.status(400).json({ message: 'Publication non sauvegardée' });
+    }
+    
+    user.savedPublications.splice(index, 1);
+    await user.save();
+    
+    res.json({ message: 'Publication retirée des sauvegardées', saved: false });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Récupérer les publications sauvegardées
+app.get('/api/users/saved-publications', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId)
+      .populate({
+        path: 'savedPublications',
+        match: { isActive: true },
+        populate: { path: 'userId', select: 'name email profileImage' }
+      });
+    
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    
+    const pubsWithUrls = user.savedPublications.filter(pub => pub !== null).map(pub => ({
+      ...pub.toObject(),
+      userId: pub.userId ? {
+        ...pub.userId.toObject(),
+        profileImage: pub.userId.profileImage ? `${BASE_URL}/${pub.userId.profileImage}` : ''
+      } : null,
+      media: pub.media ? pub.media.map(m => `${BASE_URL}/${m}`) : []
+    }));
+    
+    res.json({ publications: pubsWithUrls });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 });
 
 // Récupérer les commentaires d'une publication

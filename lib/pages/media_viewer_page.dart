@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../components/media_player.dart';
+import 'video_player_page.dart';
 
 /// Page de visualisation plein écran pour vidéos et audio
 class MediaViewerPage extends StatefulWidget {
@@ -25,29 +26,50 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
   @override
   void initState() {
     super.initState();
-    // Mode plein écran pour les vidéos
+    
+    // Si c'est une vidéo, utiliser le lecteur HTML5 dédié
     if (widget.type == MediaType.video) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-        DeviceOrientation.portraitUp,
-      ]);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VideoPlayerPage(
+              videoUrl: widget.url,
+              title: widget.title ?? 'Lecture vidéo',
+            ),
+          ),
+        );
+      });
     }
   }
 
   @override
   void dispose() {
-    // Restaurer les paramètres système
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    // Restaurer les paramètres système (seulement pour audio)
+    if (widget.type == MediaType.audio) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Si c'est une vidéo, ne rien afficher (redirection en cours)
+    if (widget.type == MediaType.video) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF00D4FF),
+          ),
+        ),
+      );
+    }
+    
+    // Pour l'audio, afficher le lecteur normal
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(

@@ -15,6 +15,10 @@ class PostCard extends StatefulWidget {
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onShare;
+  final bool isSaved;
+  final VoidCallback? onSave;
+  final VoidCallback? onDelete;
+  final bool isOwner;
 
   const PostCard({
     super.key,
@@ -30,6 +34,10 @@ class PostCard extends StatefulWidget {
     required this.onLike,
     required this.onComment,
     required this.onShare,
+    this.isSaved = false,
+    this.onSave,
+    this.onDelete,
+    this.isOwner = false,
   });
 
   @override
@@ -284,10 +292,10 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               ),
               const Spacer(),
               IconButton(
-                onPressed: () {},
+                onPressed: widget.onSave,
                 icon: Icon(
-                  Icons.bookmark_border_rounded,
-                  color: Colors.black54,
+                  widget.isSaved ? Icons.bookmark : Icons.bookmark_border_rounded,
+                  color: widget.isSaved ? Colors.blue : Colors.black54,
                 ),
               ),
             ],
@@ -360,10 +368,25 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               ),
             ),
             const SizedBox(height: 24),
-            _buildOptionItem(Icons.bookmark_rounded, 'Enregistrer', () {}),
+            _buildOptionItem(Icons.bookmark_rounded, 'Enregistrer', () {
+              if (widget.onSave != null) widget.onSave!();
+            }),
             _buildOptionItem(Icons.link_rounded, 'Copier le lien', () {}),
-            _buildOptionItem(Icons.report_rounded, 'Signaler', () {}),
-            _buildOptionItem(Icons.block_rounded, 'Masquer', () {}),
+            if (widget.isOwner) ...[
+              const Divider(color: Colors.white24, height: 32),
+              _buildOptionItem(
+                Icons.delete_rounded, 
+                'Supprimer', 
+                () {
+                  if (widget.onDelete != null) widget.onDelete!();
+                },
+                color: Colors.red,
+              ),
+            ],
+            if (!widget.isOwner) ...[
+              _buildOptionItem(Icons.report_rounded, 'Signaler', () {}),
+              _buildOptionItem(Icons.block_rounded, 'Masquer', () {}),
+            ],
             const SizedBox(height: 16),
           ],
         ),
@@ -371,16 +394,17 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildOptionItem(IconData icon, String title, VoidCallback onTap) {
+  Widget _buildOptionItem(IconData icon, String title, VoidCallback onTap, {Color? color}) {
+    final itemColor = color ?? Colors.white.withValues(alpha: 0.8);
     return ListTile(
       leading: Icon(
         icon,
-        color: Colors.white.withValues(alpha: 0.8),
+        color: itemColor,
       ),
       title: Text(
         title,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.8),
+          color: itemColor,
           fontWeight: FontWeight.w500,
         ),
       ),

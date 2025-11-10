@@ -10,6 +10,7 @@ import 'comments_page.dart';
 import 'all_stories_page.dart';
 import 'create_story_page.dart';
 import 'story_view_page.dart';
+import 'saved_publications_page.dart';
 
 class SocialPage extends StatefulWidget {
   const SocialPage({super.key});
@@ -32,6 +33,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   String? _error;
   int _currentPage = 1;
   bool _hasMore = true;
+  Set<String> _savedPublicationIds = {};
 
   @override
   void initState() {
@@ -70,6 +72,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
 
     _loadPublications();
     _loadStories();
+    _loadSavedPublications();
     _listenToWebSocket();
   }
 
@@ -232,6 +235,153 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     } catch (e) {
       debugPrint('Erreur like publication: $e');
     }
+  }
+
+  Future<void> _loadSavedPublications() async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+    if (token == null) return;
+
+    try {
+      final result = await ApiService.getSavedPublications(token);
+      final publications = result['publications'] as List<dynamic>?;
+      if (publications != null) {
+        setState(() {
+          _savedPublicationIds = publications
+              .map((pub) => pub['_id'] as String)
+              .toSet();
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement publications sauvegardées: $e');
+    }
+  }
+
+  Future<void> _toggleSavePublication(String publicationId) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+    if (token == null) return;
+
+    try {
+      if (_savedPublicationIds.contains(publicationId)) {
+        await ApiService.unsavePublication(token, publicationId);
+        setState(() {
+          _savedPublicationIds.remove(publicationId);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Publication retirée des sauvegardées'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        await ApiService.savePublication(token, publicationId);
+        setState(() {
+          _savedPublicationIds.add(publicationId);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Publication sauvegardée'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Erreur sauvegarde publication: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deletePublication(String publicationId) async {
+    // Confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text(
+          'Supprimer la publication',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Voulez-vous vraiment supprimer cette publication ? Cette action est irréversible.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Annuler',
+              style: TextStyle(color: Colors.grey[400]),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Supprimer',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+    if (token == null) return;
+
+    try {
+      await ApiService.deletePublication(token, publicationId);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _publications.removeWhere((pub) => pub['_id'] == publicationId);
+        _savedPublicationIds.remove(publicationId);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Publication supprimée'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur suppression publication: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _navigateToSavedPublications() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SavedPublicationsPage(),
+      ),
+    );
   }
 
   Future<void> _navigateToCreatePublication() async {
@@ -476,50 +626,59 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
           ),
         ),
       ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          // Bouton Carte
-          FloatingActionButton(
-            heroTag: 'map',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MapViewPage()),
-              );
-            },
-            backgroundColor: Colors.green,
-            child: const Icon(Icons.map_rounded, color: Colors.white),
+      floatingActionButton: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              // Bouton Carte
+              FloatingActionButton(
+                heroTag: 'map',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const MapViewPage()),
+                  );
+                },
+                backgroundColor: Colors.green,
+                child: const Icon(Icons.map_rounded, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              // Bouton Créer Publication
+              AnimatedBuilder(
+                animation: _fabAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _fabAnimation.value,
+                    child: FloatingActionButton.extended(
+                      heroTag: 'create',
+                      onPressed: _navigateToCreatePublication,
+                      backgroundColor: const Color(0xFF00D4FF),
+                      foregroundColor: Colors.black,
+                      icon: const Icon(Icons.edit_rounded),
+                      label: const Text(
+                        'Publier',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          // Bouton Créer Publication
-          AnimatedBuilder(
-            animation: _fabAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _fabAnimation.value,
-                child: FloatingActionButton.extended(
-                  heroTag: 'create',
-                  onPressed: _navigateToCreatePublication,
-                  backgroundColor: const Color(0xFF00D4FF),
-                  foregroundColor: Colors.black,
-                  icon: const Icon(Icons.edit_rounded),
-                  label: const Text(
-                    'Publier',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildAppBar() {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final appBarHeight = (screenHeight * 0.12).clamp(80.0, 110.0); // 12% de la hauteur d'écran, entre 80 et 110
+    
     return SliverAppBar(
-      expandedHeight: 100,
+      expandedHeight: appBarHeight,
       floating: true,
       pinned: true,
       backgroundColor: Colors.transparent,
@@ -535,15 +694,15 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
               ],
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Row(
                 children: [
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 45,
+                    height: 45,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
@@ -560,19 +719,20 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                     child: const Icon(
                       Icons.groups_rounded,
                       color: Colors.black,
-                      size: 24,
+                      size: 22,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text(
                           'Réseau Social',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 24,
+                            fontSize: 22,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -580,10 +740,25 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                           'Connectez-vous avec votre équipe',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 14,
+                            fontSize: 13,
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _navigateToSavedPublications,
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.bookmark,
+                        color: Color(0xFFFF6B35),
+                        size: 20,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -611,9 +786,12 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   }
 
   Widget _buildStoriesSection() {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final storiesHeight = (screenHeight * 0.15).clamp(100.0, 140.0); // 15% de la hauteur d'écran, entre 100 et 140
+    
     return SliverToBoxAdapter(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -645,9 +823,9 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             SizedBox(
-              height: 120,
+              height: storiesHeight,
               child: _isLoadingStories
                   ? const Center(
                       child: CircularProgressIndicator(
@@ -935,6 +1113,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
 
             final pub = _publications[index];
             final userId = pub['userId'] ?? {};
+            final publicationUserId = userId['_id'] ?? '';
             
             // 🔍 LOGS DE DEBUG
             debugPrint('📊 Publication data: ${pub.toString()}');
@@ -977,6 +1156,11 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
             
             final createdAt = pub['createdAt'];
             final publicationId = pub['_id'] ?? '';
+            
+            // Vérifier si l'utilisateur est le propriétaire de la publication
+            final appProvider = Provider.of<AppProvider>(context, listen: false);
+            final currentUserId = appProvider.currentUser?['_id'] ?? '';
+            final isOwner = publicationUserId == currentUserId;
 
             // Calculate time ago
             String timeAgo = 'maintenant';
@@ -1011,6 +1195,10 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                 onLike: () => _likePublication(publicationId),
                 onComment: () => _showCommentsDialog(publicationId, content),
                 onShare: () => _sharePublication(publicationId),
+                isSaved: _savedPublicationIds.contains(publicationId),
+                onSave: () => _toggleSavePublication(publicationId),
+                isOwner: isOwner,
+                onDelete: () => _deletePublication(publicationId),
               ),
             );
           },

@@ -26,12 +26,19 @@ import 'dart:developer' as developer;
 /// ```
 ///
 class ApiService {
-  // Configuration FIXE - Plus de détection dynamique
-  static const String _baseUrl = 'http://192.168.1.66:5000';
+  // Configuration dynamique - détection automatique de l'IP
+  static String? _baseUrl;
   static const String apiPrefix = '/api';
+  static bool _isInitialized = false;
 
-  // Getter pour l'URL de base (toujours fixe maintenant)
-  static String get baseUrl => _baseUrl;
+  // Getter pour l'URL de base
+  static String get baseUrl {
+    if (_baseUrl == null) {
+      // URL par défaut si pas encore détectée
+      return 'http://192.168.1.98:5000'; // IP détectée par le backend
+    }
+    return _baseUrl!;
+  }
 
   // Headers par défaut
   static Map<String, String> get _defaultHeaders => {
@@ -77,22 +84,77 @@ class ApiService {
     return 'application/octet-stream';
   }
 
-  // Méthodes de compatibilité (ne font plus rien mais gardées pour éviter les erreurs)
+  // Méthodes de détection automatique d'IP
   static Future<void> initialize() async {
-    developer.log('✅ API Service - URL fixe: $_baseUrl', name: 'ApiService');
+    if (_isInitialized) return;
+    
+    developer.log('🔍 API Service - Détection automatique de l\'IP...', name: 'ApiService');
+    
+    try {
+      // Essayer d'abord l'IP détectée par le backend
+      const String detectedIP = '192.168.1.98';
+      final testUrl = 'http://$detectedIP:5000/api/server-info';
+      
+      developer.log('🧪 Test de connexion à: $testUrl', name: 'ApiService');
+      
+      final response = await http.get(Uri.parse(testUrl)).timeout(
+        const Duration(seconds: 5),
+      );
+      
+      if (response.statusCode == 200) {
+        _baseUrl = 'http://$detectedIP:5000';
+        _isInitialized = true;
+        developer.log('✅ IP détectée automatiquement: $detectedIP', name: 'ApiService');
+        return;
+      }
+    } catch (e) {
+      developer.log('⚠️ Échec avec IP détectée: $e', name: 'ApiService');
+    }
+    
+    // Fallback: essayer localhost
+    try {
+      const String fallbackIP = 'localhost';
+      final testUrl = 'http://$fallbackIP:5000/api/server-info';
+      
+      developer.log('🧪 Test de fallback à: $testUrl', name: 'ApiService');
+      
+      final response = await http.get(Uri.parse(testUrl)).timeout(
+        const Duration(seconds: 3),
+      );
+      
+      if (response.statusCode == 200) {
+        _baseUrl = 'http://$fallbackIP:5000';
+        _isInitialized = true;
+        developer.log('✅ Fallback réussi: $fallbackIP', name: 'ApiService');
+        return;
+      }
+    } catch (e) {
+      developer.log('⚠️ Échec du fallback: $e', name: 'ApiService');
+    }
+    
+    // Dernier fallback: utiliser l'IP par défaut
+    _baseUrl = 'http://192.168.1.98:5000';
+    _isInitialized = true;
+    developer.log('⚠️ Utilisation de l\'IP par défaut: 192.168.1.98', name: 'ApiService');
   }
 
   static void reset() {
-    developer.log('🔄 API Service - reset appelé (pas d\'effet avec URL fixe)', name: 'ApiService');
+    _baseUrl = null;
+    _isInitialized = false;
+    developer.log('🔄 API Service - reset effectué', name: 'ApiService');
   }
 
   static void useDefaultUrl() {
-    developer.log('✅ API Service - URL fixe: $_baseUrl', name: 'ApiService');
+    _baseUrl = 'http://192.168.1.98:5000';
+    _isInitialized = true;
+    developer.log('✅ API Service - URL par défaut utilisée', name: 'ApiService');
   }
 
-  // Méthode privée pour assurer l'initialisation (ne fait plus rien mais gardée pour compatibilité)
+  // Méthode privée pour assurer l'initialisation
   static Future<void> _ensureInitialized() async {
-    // Plus besoin d'initialisation avec URL fixe
+    if (!_isInitialized) {
+      await initialize();
+    }
   }
 
   // ========================================
@@ -615,6 +677,69 @@ class ApiService {
         return data;
       } else {
         throw Exception(data['message'] ?? 'Erreur de like');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Sauvegarder une publication
+  static Future<Map<String, dynamic>> savePublication(String token, String publicationId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/save'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de sauvegarde');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Retirer une publication des sauvegardées
+  static Future<Map<String, dynamic>> unsavePublication(String token, String publicationId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/save'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de retrait');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Récupérer les publications sauvegardées
+  static Future<Map<String, dynamic>> getSavedPublications(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/users/saved-publications'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération');
       }
     } catch (e) {
       throw Exception('Erreur de connexion: $e');
