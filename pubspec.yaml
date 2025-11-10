@@ -55,6 +55,7 @@ dependencies:
   
   # Storage
   shared_preferences: ^2.2.2
+  path_provider: ^2.1.5
   
   # WebSocket
   web_socket_channel: ^3.0.1

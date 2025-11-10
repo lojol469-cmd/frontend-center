@@ -1130,7 +1130,22 @@ app.get('/api/users/saved-publications', verifyToken, async (req, res) => {
         ...pub.userId.toObject(),
         profileImage: pub.userId.profileImage ? `${BASE_URL}/${pub.userId.profileImage}` : ''
       } : null,
-      media: pub.media ? pub.media.map(m => `${BASE_URL}/${m}`) : []
+      // ✅ CORRECTION: Garder la structure media complète avec type, url, filename
+      media: pub.media ? pub.media.map(m => {
+        if (typeof m === 'string') {
+          // Si c'est déjà une string, ajouter BASE_URL
+          return m.startsWith('http') ? m : `${BASE_URL}/${m}`;
+        } else if (m && typeof m === 'object') {
+          // Si c'est un objet, retourner l'objet complet avec URL corrigée
+          return {
+            type: m.type,
+            url: m.url && m.url.startsWith('http') ? m.url : `${BASE_URL}/${m.url || ''}`,
+            filename: m.filename || '',
+            _id: m._id
+          };
+        }
+        return m;
+      }) : []
     }));
     
     res.json({ publications: pubsWithUrls });

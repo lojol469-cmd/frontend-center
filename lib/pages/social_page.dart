@@ -273,9 +273,25 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   void _openTrendsMode(int initialIndex) {
     // Filtrer uniquement les publications avec des vidéos
     final videoPublications = _publications.where((pub) {
+      // Vérifier d'abord mediaType
       final mediaType = pub['mediaType'];
-      return mediaType == 'video';
+      if (mediaType == 'video') return true;
+
+      // Sinon vérifier dans le tableau media
+      final media = pub['media'] as List?;
+      if (media != null && media.isNotEmpty) {
+        final firstMedia = media[0];
+        if (firstMedia is Map) {
+          return firstMedia['type'] == 'video';
+        } else if (firstMedia is String) {
+          return firstMedia.toLowerCase().contains('.mp4');
+        }
+      }
+      
+      return false;
     }).map((pub) => pub as Map<String, dynamic>).toList();
+
+    debugPrint('🎥 Vidéos trouvées: ${videoPublications.length}');
 
     if (videoPublications.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

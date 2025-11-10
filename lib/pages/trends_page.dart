@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../api_service.dart';
 import '../main.dart';
 import 'comments_page.dart';
@@ -53,22 +54,49 @@ class _TrendsPageState extends State<TrendsPage> {
     }
 
     final video = widget.videos[index];
-    final videoUrl = _getVideoUrl(video);
+    debugPrint('\n═══════════════════════════════════════');
+    debugPrint('🎥 Initialisation vidéo $index');
+    debugPrint('   Publication ID: ${video['_id']}');
+    debugPrint('   Publication complète: $video');
+    debugPrint('   Media raw: ${video['media']}');
+    debugPrint('   Media type: ${video['media'].runtimeType}');
     
-    if (videoUrl.isEmpty) return;
-
-    final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-    _controllers[index] = controller;
+    final videoUrl = _getVideoUrl(video);
+    debugPrint('📍 URL retournée par _getVideoUrl: "$videoUrl"');
+    debugPrint('   Type: ${videoUrl.runtimeType}');
+    debugPrint('   Longueur: ${videoUrl.length}');
+    
+    if (videoUrl.isEmpty) {
+      debugPrint('⚠️ URL vide, abandon du chargement');
+      debugPrint('═══════════════════════════════════════\n');
+      return;
+    }
 
     try {
+      debugPrint('📡 Création du contrôleur VideoPlayer');
+      debugPrint('   URL qui sera parsée: "$videoUrl"');
+      
+      final uri = Uri.parse(videoUrl);
+      debugPrint('   URI parsé: $uri');
+      debugPrint('   URI scheme: ${uri.scheme}');
+      debugPrint('   URI host: ${uri.host}');
+      debugPrint('   URI path: ${uri.path}');
+      
+      final controller = VideoPlayerController.networkUrl(uri);
+      _controllers[index] = controller;
+
       await controller.initialize();
       if (mounted && _currentIndex == index) {
         controller.setLooping(true);
         controller.play();
         setState(() {});
+        debugPrint('✅ Vidéo $index initialisée et en lecture');
       }
+      debugPrint('═══════════════════════════════════════\n');
     } catch (e) {
-      debugPrint('❌ Erreur initialisation vidéo: $e');
+      debugPrint('❌ ERREUR initialisation vidéo $index: $e');
+      debugPrint('   URL problématique: "$videoUrl"');
+      debugPrint('═══════════════════════════════════════\n');
     }
   }
 
@@ -80,24 +108,55 @@ class _TrendsPageState extends State<TrendsPage> {
 
   String _getVideoUrl(Map<String, dynamic> publication) {
     final media = publication['media'];
-    if (media == null) return '';
+    
+    debugPrint('🔍 DEBUG _getVideoUrl:');
+    debugPrint('   Type de media: ${media.runtimeType}');
+    
+    if (media == null) {
+      debugPrint('⚠️ media est null');
+      return '';
+    }
+    
+    // ✅ UTILISER LA MÊME LOGIQUE QUE social_page.dart
+    String? imageUrl;
     
     if (media is List && media.isNotEmpty) {
       final firstMedia = media[0];
+      debugPrint('   → media[0] type: ${firstMedia.runtimeType}');
+      
       if (firstMedia is String) {
-        return _getFullUrl(firstMedia);
+        imageUrl = firstMedia;
+        debugPrint('   ✅ Extrait comme String: $imageUrl');
       } else if (firstMedia is Map) {
-        return _getFullUrl(firstMedia['url'] ?? '');
+        // ✅ EXTRACTION SIMPLE COMME social_page.dart
+        imageUrl = firstMedia['url']?.toString() ?? firstMedia['path']?.toString();
+        debugPrint('   ✅ Extrait du Map: $imageUrl');
+        debugPrint('   → firstMedia clés: ${firstMedia.keys.toList()}');
       }
     } else if (media is String) {
-      return _getFullUrl(media);
+      imageUrl = media;
+      debugPrint('   ✅ media est String: $imageUrl');
+    } else if (media is Map) {
+      imageUrl = media['url']?.toString() ?? media['path']?.toString();
+      debugPrint('   ✅ Extrait du Map direct: $imageUrl');
     }
     
-    return '';
+    if (imageUrl == null || imageUrl.isEmpty) {
+      debugPrint('❌ URL non trouvée dans media');
+      return '';
+    }
+    
+    final fullUrl = _getFullUrl(imageUrl);
+    debugPrint('✅ URL vidéo finale: $fullUrl');
+    return fullUrl;
   }
 
   String _getFullUrl(String? url) {
-    if (url == null || url.isEmpty) return '';
+    if (url == null || url.isEmpty) {
+      debugPrint('⚠️ _getFullUrl: URL vide ou null');
+      return '';
+    }
+    
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
@@ -140,18 +199,17 @@ class _TrendsPageState extends State<TrendsPage> {
           return Stack(
             fit: StackFit.expand,
             children: [
-              // Vidéo en plein écran
+              // Thumbnail en arrière-plan (comme dans post_card.dart)
+              _VideoThumbnailBackground(
+                videoUrl: _getVideoUrl(publication),
+              ),
+              
+              // Vidéo en plein écran par-dessus
               if (controller != null && controller.value.isInitialized)
                 Center(
                   child: AspectRatio(
                     aspectRatio: controller.value.aspectRatio,
                     child: VideoPlayer(controller),
-                  ),
-                )
-              else
-                const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
                   ),
                 ),
               
@@ -463,4 +521,185 @@ Partagé depuis CENTER
       debugPrint('❌ Erreur toggle like: $e');
     }
   }
+}
+
+// Widget pour afficher l'image de caption (preview) pendant le chargement de la vidéo
+class _VideoThumbnailBackground extends StatelessWidget {
+  final String videoUrl;
+
+  const _VideoThumbnailBackground({
+    required this.videoUrl,
+  });
+
+  // Essayer de trouver une image de preview associée à la vidéo
+  String? _getThumbnailUrl() {
+    // Si l'URL contient .mp4, remplacer par .jpg pour chercher le thumbnail
+    if (videoUrl.contains('.mp4')) {
+      return videoUrl.replaceAll('.mp4', '_thumb.jpg');
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final thumbnailUrl = _getThumbnailUrl();
+    
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1A1A2E),
+            const Color(0xFF16213E),
+            const Color(0xFF0F3460),
+            const Color(0xFF000000),
+          ],
+          stops: const [0.0, 0.3, 0.6, 1.0],
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Essayer de charger l'image thumbnail depuis le serveur
+          if (thumbnailUrl != null)
+            CachedNetworkImage(
+              imageUrl: thumbnailUrl,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                color: Colors.black87,
+              ),
+              errorWidget: (context, url, error) {
+                debugPrint('❌ Thumbnail non trouvé: $thumbnailUrl');
+                return Container(color: Colors.black87);
+              },
+            )
+          else
+            Container(color: Colors.black87),
+          
+          // Pattern de fond léger
+          Opacity(
+            opacity: 0.05,
+            child: CustomPaint(
+              painter: _GridPatternPainter(),
+            ),
+          ),
+          
+          // Overlay pour améliorer le contraste
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.2),
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.4),
+                ],
+              ),
+            ),
+          ),
+          
+          // Icône play au centre avec glow effect
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(30),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF00FF88).withValues(alpha: 0.4),
+                    const Color(0xFF00FF88).withValues(alpha: 0.1),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF00FF88).withValues(alpha: 0.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00FF88).withValues(alpha: 0.5),
+                      blurRadius: 40,
+                      spreadRadius: 10,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  size: 80,
+                  color: Color(0xFF00FF88),
+                ),
+              ),
+            ),
+          ),
+          
+          // Loading indicator en bas
+          Positioned(
+            bottom: 100,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(
+                    color: Color(0xFF00FF88),
+                    strokeWidth: 3,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Chargement de la vidéo...',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Custom painter pour le pattern de grille
+class _GridPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.1)
+      ..strokeWidth = 1;
+
+    const spacing = 50.0;
+    
+    // Lignes verticales
+    for (double x = 0; x < size.width; x += spacing) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        paint,
+      );
+    }
+    
+    // Lignes horizontales
+    for (double y = 0; y < size.height; y += spacing) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

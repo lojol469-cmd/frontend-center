@@ -245,6 +245,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
           child: Stack(
             children: [
               _VideoThumbnailWidget(
+                key: ValueKey('video_thumb_${widget.imageUrl}'), // Key unique pour chaque vidéo
                 videoUrl: widget.imageUrl!,
                 content: widget.content,
               ),
@@ -569,6 +570,7 @@ class _VideoThumbnailWidget extends StatefulWidget {
   final String content;
 
   const _VideoThumbnailWidget({
+    super.key,
     required this.videoUrl,
     required this.content,
   });
@@ -586,6 +588,21 @@ class _VideoThumbnailWidgetState extends State<_VideoThumbnailWidget> {
   void initState() {
     super.initState();
     _generateThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(_VideoThumbnailWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Si l'URL de la vidéo a changé, régénérer le thumbnail
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      debugPrint('🔄 URL changée, régénération du thumbnail');
+      setState(() {
+        _thumbnailData = null;
+        _isLoading = true;
+        _hasError = false;
+      });
+      _generateThumbnail();
+    }
   }
 
   Future<void> _generateThumbnail() async {
