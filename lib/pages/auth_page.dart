@@ -4,6 +4,7 @@ import '../main.dart';
 import '../api_service.dart';
 import '../components/gradient_button.dart';
 import '../components/custom_text_field.dart';
+import '../components/connection_status.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -101,6 +102,9 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
+          const SizedBox(height: 20),
+          // Indicateur de statut de connexion
+          const ConnectionStatusWidget(),
           const SizedBox(height: 40),
           _buildHeader(),
           const SizedBox(height: 60),

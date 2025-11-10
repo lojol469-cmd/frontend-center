@@ -64,6 +64,55 @@ const BASE_URL = `http://${SERVER_IP}:${process.env.PORT || 5000}`;
 console.log(`🌐 URL de base du serveur: ${BASE_URL}`);
 
 // ========================================
+// MIDDLEWARE - CORRECTION AUTOMATIQUE DES URLs
+// ========================================
+
+// Liste des anciennes IPs connues à remplacer
+const OLD_IPS = [
+  '192.168.1.98',
+  '192.168.43.1',
+  '10.0.2.2',
+  'localhost',
+  '127.0.0.1'
+];
+
+// Middleware pour corriger automatiquement toutes les URLs dans les réponses
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  
+  res.json = function(data) {
+    // Fonction récursive pour remplacer les URLs dans un objet
+    const replaceUrls = (obj) => {
+      if (typeof obj === 'string') {
+        // Remplacer toutes les anciennes IPs par la nouvelle
+        let result = obj;
+        OLD_IPS.forEach(oldIp => {
+          const oldUrlPattern = new RegExp(`http://${oldIp.replace(/\./g, '\\.')}:5000`, 'g');
+          result = result.replace(oldUrlPattern, BASE_URL);
+        });
+        // Corriger les URLs mal formées (file:///)
+        result = result.replace(/^file:\/\/\//g, `${BASE_URL}/`);
+        return result;
+      } else if (Array.isArray(obj)) {
+        return obj.map(item => replaceUrls(item));
+      } else if (obj !== null && typeof obj === 'object') {
+        const newObj = {};
+        for (const key in obj) {
+          newObj[key] = replaceUrls(obj[key]);
+        }
+        return newObj;
+      }
+      return obj;
+    };
+    
+    const correctedData = replaceUrls(data);
+    return originalJson.call(this, correctedData);
+  };
+  
+  next();
+});
+
+// ========================================
 // CONFIGURATION GÉNÉRALE
 // ========================================
 
@@ -388,6 +437,39 @@ const transporter = nodemailer.createTransport({
 });
 
 const generateOTP = () => crypto.randomInt(100000, 999999).toString();
+
+// ========================================
+// MIDDLEWARE POUR CORRIGER LES URLs
+// ========================================
+
+// Middleware pour remplacer automatiquement les anciennes IPs/URLs invalides
+app.use((req, res, next) => {
+  const originalJson = res.json.bind(res);
+  
+  res.json = function(data) {
+    if (data) {
+      try {
+        const dataString = JSON.stringify(data);
+        // Remplacer toutes les anciennes URLs par la nouvelle BASE_URL actuelle
+        const fixedData = dataString
+          .replace(/file:\/\/\//g, `${BASE_URL}/`)
+          .replace(/http:\/\/192\.168\.1\.98:5000/g, BASE_URL)
+          .replace(/http:\/\/192\.168\.43\.1:5000/g, BASE_URL)
+          .replace(/http:\/\/10\.0\.2\.2:5000/g, BASE_URL)
+          .replace(/http:\/\/localhost:5000/g, BASE_URL)
+          .replace(/http:\/\/127\.0\.0\.1:5000/g, BASE_URL);
+        
+        return originalJson(JSON.parse(fixedData));
+      } catch (e) {
+        console.error('❌ Erreur correction URLs:', e);
+        return originalJson(data);
+      }
+    }
+    return originalJson(data);
+  };
+  
+  next();
+});
 
 // ========================================
 // MIDDLEWARES DE SÉCURITÉ
@@ -2271,13 +2353,15 @@ wss.on('connection', (ws) => {
       if (data.type === 'auth' && data.token) {
         try {
           const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
-          userId = decoded.id;
+          userId = decoded.userId; // Utiliser userId au lieu de id
           clients.set(userId, ws);
-          console.log(`✅ Client authentifié: ${userId}`);
+          console.log(`✅ Client authentifié: ${decoded.email || userId}`);
           
           ws.send(JSON.stringify({
             type: 'auth_success',
-            message: 'Authentifié avec succès'
+            message: 'Authentifié avec succès',
+            userId: userId,
+            email: decoded.email
           }));
         } catch (err) {
           console.log('❌ Token invalide');

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as path;
 import 'dart:developer' as developer;
+import 'config/server_config.dart';
 
 ///
 /// SERVICE API DYNAMIQUE POUR FLUTTER
@@ -30,12 +31,16 @@ class ApiService {
   static String? _baseUrl;
   static const String apiPrefix = '/api';
   static bool _isInitialized = false;
+  
+  // Liste des adresses IP à essayer (depuis la configuration)
+  static List<String> get _possibleIPs => ServerConfig.serverIPs;
+  static int get _serverPort => ServerConfig.serverPort;
 
   // Getter pour l'URL de base
   static String get baseUrl {
     if (_baseUrl == null) {
       // URL par défaut si pas encore détectée
-      return 'http://192.168.1.98:5000'; // IP détectée par le backend
+      return ServerConfig.buildUrl(_possibleIPs[0]);
     }
     return _baseUrl!;
   }
@@ -88,54 +93,59 @@ class ApiService {
   static Future<void> initialize() async {
     if (_isInitialized) return;
     
-    developer.log('🔍 API Service - Détection automatique de l\'IP...', name: 'ApiService');
+    developer.log('🔍 API Service - Détection automatique du serveur...', name: 'ApiService');
+    developer.log('📡 Test de ${_possibleIPs.length} adresses IP', name: 'ApiService');
     
-    try {
-      // Essayer d'abord l'IP détectée par le backend
-      const String detectedIP = '192.168.1.98';
-      final testUrl = 'http://$detectedIP:5000/api/server-info';
-      
-      developer.log('🧪 Test de connexion à: $testUrl', name: 'ApiService');
-      
-      final response = await http.get(Uri.parse(testUrl)).timeout(
-        const Duration(seconds: 5),
-      );
-      
-      if (response.statusCode == 200) {
-        _baseUrl = 'http://$detectedIP:5000';
-        _isInitialized = true;
-        developer.log('✅ IP détectée automatiquement: $detectedIP', name: 'ApiService');
-        return;
+    // Essayer chaque IP dans l'ordre
+    for (final ip in _possibleIPs) {
+      try {
+        final testUrl = ServerConfig.getTestUrl(ip);
+        
+        developer.log('🧪 Test de connexion à: $testUrl', name: 'ApiService');
+        
+        final response = await http.get(Uri.parse(testUrl)).timeout(
+          Duration(seconds: ServerConfig.connectionTimeout),
+        );
+        
+        if (response.statusCode == 200) {
+          _baseUrl = ServerConfig.buildUrl(ip);
+          _isInitialized = true;
+          developer.log('✅ Serveur trouvé! IP: $ip:$_serverPort', name: 'ApiService');
+          developer.log('🌐 Base URL: $_baseUrl', name: 'ApiService');
+          return;
+        }
+      } catch (e) {
+        developer.log('❌ Échec pour $ip: ${e.toString().split('\n')[0]}', name: 'ApiService');
+        continue;
       }
-    } catch (e) {
-      developer.log('⚠️ Échec avec IP détectée: $e', name: 'ApiService');
     }
     
-    // Fallback: essayer localhost
+    // Aucune IP n'a fonctionné - utiliser la première par défaut
+    _baseUrl = ServerConfig.buildUrl(_possibleIPs[0]);
+    _isInitialized = true;
+    developer.log('⚠️ Aucun serveur trouvé - Utilisation par défaut: $_baseUrl', name: 'ApiService');
+    developer.log('💡 Vérifiez que le serveur Node.js est démarré sur le port $_serverPort', name: 'ApiService');
+  }
+  
+  // Forcer une nouvelle détection (utile si on change de réseau)
+  static Future<void> reconnect() async {
+    developer.log('🔄 Reconnexion - Réinitialisation de la détection IP...', name: 'ApiService');
+    _isInitialized = false;
+    _baseUrl = null;
+    await initialize();
+  }
+  
+  // Vérifier si le serveur est accessible
+  static Future<bool> checkConnection() async {
     try {
-      const String fallbackIP = 'localhost';
-      final testUrl = 'http://$fallbackIP:5000/api/server-info';
-      
-      developer.log('🧪 Test de fallback à: $testUrl', name: 'ApiService');
-      
+      final testUrl = '$baseUrl$apiPrefix/server-info';
       final response = await http.get(Uri.parse(testUrl)).timeout(
         const Duration(seconds: 3),
       );
-      
-      if (response.statusCode == 200) {
-        _baseUrl = 'http://$fallbackIP:5000';
-        _isInitialized = true;
-        developer.log('✅ Fallback réussi: $fallbackIP', name: 'ApiService');
-        return;
-      }
+      return response.statusCode == 200;
     } catch (e) {
-      developer.log('⚠️ Échec du fallback: $e', name: 'ApiService');
+      return false;
     }
-    
-    // Dernier fallback: utiliser l'IP par défaut
-    _baseUrl = 'http://192.168.1.98:5000';
-    _isInitialized = true;
-    developer.log('⚠️ Utilisation de l\'IP par défaut: 192.168.1.98', name: 'ApiService');
   }
 
   static void reset() {
@@ -145,9 +155,9 @@ class ApiService {
   }
 
   static void useDefaultUrl() {
-    _baseUrl = 'http://192.168.1.98:5000';
+    _baseUrl = 'http://${ServerConfig.serverIPs.first}:${ServerConfig.serverPort}';
     _isInitialized = true;
-    developer.log('✅ API Service - URL par défaut utilisée', name: 'ApiService');
+    developer.log('✅ API Service - URL par défaut utilisée: $_baseUrl', name: 'ApiService');
   }
 
   // Méthode privée pour assurer l'initialisation

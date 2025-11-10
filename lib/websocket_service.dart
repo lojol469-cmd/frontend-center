@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'api_service.dart';
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
@@ -14,8 +15,7 @@ class WebSocketService {
   bool _isConnecting = false;
   String? _token;
   
-  // Configuration
-  static const String baseUrl = '192.168.1.66:5000';
+  // Configuration dynamique depuis ApiService
   static const Duration reconnectDelay = Duration(seconds: 5);
 
   Stream<Map<String, dynamic>> get stream => _controller.stream;
@@ -32,6 +32,8 @@ class WebSocketService {
     _isConnecting = true;
 
     try {
+      // Utiliser l'URL du serveur détecté par ApiService
+      final baseUrl = ApiService.baseUrl.replaceAll('http://', '').replaceAll('https://', '');
       debugPrint('🔌 Connexion WebSocket à ws://$baseUrl...');
       
       _channel = WebSocketChannel.connect(
