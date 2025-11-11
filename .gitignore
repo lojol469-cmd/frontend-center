@@ -88,6 +88,19 @@ Desktop.ini
 migrate_working_dir/
 
 # =====================================
+# 🐍 PYTHON ENVIRONNEMENT VIRTUEL
+# =====================================
+.venv/
+venv/
+env/
+ENV/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+
+# =====================================
 # 🧪 TESTS & GÉNÉRATION TEMPORAIRE
 # =====================================
 test/coverage/
@@ -96,9 +109,13 @@ backend/coverage/
 # =====================================
 # 🧰 SCRIPTS & FICHIERS LOCAUX
 # =====================================
-*.ps1
-*.bat
-*.sh
+# Scripts de compression vidéo temporaires
+compress_videos*.py
+compress_videos*.ps1
+copy_videos.ps1
+clean_videos.ps1
+download_aquatic_video.ps1
+# Autres scripts génériques
 tools/local_*.*
 add_padding_logo.ps1
 
@@ -111,6 +128,15 @@ logo_*.png
 LOGO VECTORISE PNG.png
 assets/images/app_logo.png
 WhatsApp Image *.jpg
+
+# =====================================
+# 🎥 VIDEOS TROP VOLUMINEUSES (> 10 MB)
+# =====================================
+# Exclure les 2 vidéos non optimisées
+assets/videos/aquarium_5.mp4
+assets/videos/aquarium_15.mp4
+# Exclure les vidéos sources du dossier videos/
+videos/
 
 # =====================================
 # 🧠 SWIFTPM / DIVERS
