@@ -25,6 +25,7 @@ class _StoryViewPageState extends State<StoryViewPage> {
   int _currentStoryIndex = 0;
   Timer? _timer;
   bool _isPaused = false;
+  double _currentProgress = 0.0; // Progression pour le cercle de fermeture
 
   final Map<int, bool> _viewedStories = {}; // Track viewed stories
 
@@ -69,12 +70,39 @@ class _StoryViewPageState extends State<StoryViewPage> {
 
     // Pour les vidéos, le timer sera géré par le callback onFinished
     if (mediaType == 'video') {
+      // Pour les vidéos, ne pas mettre à jour la progression (performance)
+      setState(() {
+        _currentProgress = 0.0;
+      });
       return;
     }
 
-    _timer = Timer(Duration(seconds: duration), () {
-      if (mounted && !_isPaused) {
-        _nextStory();
+    // Réinitialiser la progression
+    setState(() {
+      _currentProgress = 0.0;
+    });
+
+    // Timer périodique pour mettre à jour la progression (optimisé à 200ms)
+    const tickDuration = Duration(milliseconds: 300); // 3 fois par seconde (encore plus optimisé)
+    int elapsedMilliseconds = 0;
+    int totalMilliseconds = duration * 1000;
+
+    _timer = Timer.periodic(tickDuration, (timer) {
+      if (_isPaused) return;
+      
+      elapsedMilliseconds += tickDuration.inMilliseconds;
+      
+      if (mounted) {
+        setState(() {
+          _currentProgress = elapsedMilliseconds / totalMilliseconds;
+        });
+      }
+      
+      if (elapsedMilliseconds >= totalMilliseconds) {
+        timer.cancel();
+        if (mounted && !_isPaused) {
+          _nextStory();
+        }
       }
     });
   }
@@ -354,6 +382,9 @@ class _StoryViewPageState extends State<StoryViewPage> {
               },
               child: PageView.builder(
                 controller: _pageController,
+                physics: const ClampingScrollPhysics(), // Physique optimisée
+                pageSnapping: true,
+                allowImplicitScrolling: false, // Désactiver le pré-chargement implicite
                 onPageChanged: (index) {
                   setState(() {
                     _currentStoryIndex = index;
@@ -363,7 +394,15 @@ class _StoryViewPageState extends State<StoryViewPage> {
                 },
                 itemCount: widget.stories.length,
                 itemBuilder: (context, index) {
-                  return _buildStoryContent(widget.stories[index]);
+                  // Ne construire que la page actuelle et les adjacentes immédiates
+                  if ((index - _currentStoryIndex).abs() > 1) {
+                    return const SizedBox.shrink(); // Page vide pour les autres
+                  }
+                  // RepaintBoundary pour isoler chaque story et éviter les repaints globaux
+                  return RepaintBoundary(
+                    key: ValueKey('story_$index'),
+                    child: _buildStoryContent(widget.stories[index]),
+                  );
                 },
               ),
             ),
@@ -530,9 +569,6 @@ class _StoryViewPageState extends State<StoryViewPage> {
               if (value == 'delete') {
                 debugPrint('🗑️ Launching delete confirmation');
                 _showDeleteConfirmation(_currentStoryIndex);
-              } else if (value == 'close') {
-                debugPrint('❌ Closing story viewer');
-                Navigator.pop(context);
               }
             },
             itemBuilder: (context) {
@@ -558,30 +594,51 @@ class _StoryViewPageState extends State<StoryViewPage> {
                     ],
                   ),
                 ),
-              // Séparateur si propriétaire (entre Supprimer et Fermer)
-              if (_isOwner(story))
-                const PopupMenuDivider(height: 1),
-              // Option Fermer pour tous
-              const PopupMenuItem(
-                value: 'close',
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              ];
+            },
+          ),
+          // Bouton fermer avec cercle de progression
+          Positioned(
+            top: 8,
+            right: 16,
+            child: GestureDetector(
+              onTap: () {
+                debugPrint('❌ Close button tapped');
+                Navigator.pop(context);
+              },
+              child: SizedBox(
+                width: 36,
+                height: 36,
+                child: Stack(
                   children: [
-                    Icon(Icons.close, color: Colors.white70, size: 20),
-                    SizedBox(width: 12),
-                    Text(
-                      'Fermer',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    // Cercle de progression (seulement pour images/texte, pas pour vidéos)
+                    if (story['mediaType'] != 'video')
+                      CircularProgressIndicator(
+                        value: _currentProgress,
+                        strokeWidth: 3,
+                        backgroundColor: Colors.white24,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    // Icône X au centre
+                    Center(
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              ];
-            },
+            ),
           ),
         ],
       ),
@@ -595,12 +652,13 @@ class _StoryViewPageState extends State<StoryViewPage> {
     final content = story['content'] ?? '';
     final backgroundColor = story['backgroundColor'] ?? '#00D4FF';
 
-    debugPrint('🎬 Building story content:');
-    debugPrint('   Type: $mediaType');
-    debugPrint('   Raw URL: $rawMediaUrl');
-    debugPrint('   Full URL: $mediaUrl');
-    debugPrint('   Content: $content');
-    debugPrint('   Background: $backgroundColor');
+    // Logs pour debug URL (temporaire)
+    if (mediaType == 'video') {
+      debugPrint('🎬 Video Story Debug:');
+      debugPrint('   Raw URL: $rawMediaUrl');
+      debugPrint('   Full URL: $mediaUrl');
+      debugPrint('   Starts with http: ${mediaUrl.startsWith('http')}');
+    }
 
     if (mediaType == 'image' && mediaUrl.isNotEmpty) {
       return Stack(
@@ -661,8 +719,9 @@ class _StoryViewPageState extends State<StoryViewPage> {
         ],
       );
     } else if (mediaType == 'video' && mediaUrl.isNotEmpty) {
-      debugPrint('🎥 Creating video player for: $mediaUrl');
-      debugPrint('   Current story index: $_currentStoryIndex');
+      // Logs minimaux pour les vidéos (performance)
+      debugPrint('🎥 Video story at index: $_currentStoryIndex');
+      
       // Clé unique basée sur l'URL ET l'index pour forcer reconstruction
       final playerKey = Key('video_${_currentStoryIndex}_$mediaUrl');
       return Stack(

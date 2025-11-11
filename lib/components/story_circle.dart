@@ -11,6 +11,7 @@ class StoryCircle extends StatefulWidget {
   final VoidCallback? onDelete; // Callback pour supprimer la story
   final String? mediaUrl; // URL de la vidéo ou image de la story
   final String? mediaType; // 'video', 'image', ou 'text'
+  final int? storyCount; // Nombre de stories groupées (WhatsApp style)
 
   const StoryCircle({
     super.key,
@@ -22,6 +23,7 @@ class StoryCircle extends StatefulWidget {
     this.onDelete,
     this.mediaUrl,
     this.mediaType,
+    this.storyCount,
   });
 
   @override
@@ -215,6 +217,38 @@ class _StoryCircleState extends State<StoryCircle> {
                       Icons.add,
                       color: Colors.black,
                       size: 16,
+                    ),
+                  ),
+                ),
+              // Badge compteur de stories groupées (WhatsApp style)
+              if (widget.storyCount != null && widget.storyCount! > 1)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00D4FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.black,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      '${widget.storyCount}',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),

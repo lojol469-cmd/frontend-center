@@ -35,6 +35,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   int _currentPage = 1;
   bool _hasMore = true;
   Set<String> _savedPublicationIds = {};
+  final bool _isGroupedMode = true; // Mode groupé par défaut (WhatsApp style)
 
   @override
   void initState() {
@@ -134,6 +135,44 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     // Enlever le slash au début de l'URL si présent
     final cleanUrl = url.startsWith('/') ? url.substring(1) : url;
     return '$baseUrl/$cleanUrl';
+  }
+
+  // Regrouper les stories par utilisateur (WhatsApp style)
+  List<Map<String, dynamic>> _groupStoriesByUser(List<Map<String, dynamic>> stories) {
+    if (!_isGroupedMode) return stories; // Mode dégroupé
+    
+    // Map pour stocker les stories par userId
+    final Map<String, Map<String, dynamic>> userStoriesMap = {};
+    
+    for (var story in stories) {
+      // Extraire userId
+      final storyUserIdData = story['userId'];
+      String? userId;
+      
+      if (storyUserIdData is Map) {
+        userId = storyUserIdData['_id'] as String?;
+      } else if (storyUserIdData is String) {
+        userId = storyUserIdData;
+      }
+      
+      if (userId == null) continue;
+      
+      // Si c'est la première story de cet utilisateur
+      if (!userStoriesMap.containsKey(userId)) {
+        userStoriesMap[userId] = {
+          ...story,
+          'groupedStories': [story], // Liste des stories groupées
+          'storyCount': 1,
+        };
+      } else {
+        // Ajouter la story à la liste groupée
+        final userStory = userStoriesMap[userId]!;
+        (userStory['groupedStories'] as List).add(story);
+        userStory['storyCount'] = (userStory['storyCount'] as int) + 1;
+      }
+    }
+    
+    return userStoriesMap.values.toList();
   }
 
   Future<void> _loadPublications() async {
@@ -554,20 +593,24 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     });
   }
 
-  Future<void> _navigateToViewStory(int index) async {
+  // Navigation vers un groupe de stories (mode groupé)
+  Future<void> _navigateToViewStoryGroup(int groupIndex, List<Map<String, dynamic>> groupedStories) async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final token = appProvider.accessToken;
     
     if (token == null) return;
     
     try {
-      // Charger les stories depuis l'API
-      final result = await ApiService.getStories(token);
-      final stories = (result['stories'] as List<dynamic>?)
-          ?.map((s) => s as Map<String, dynamic>)
-          .toList() ?? [];
+      final storyGroup = groupedStories[groupIndex];
       
-      if (stories.isEmpty) {
+      // En mode groupé, récupérer toutes les stories du groupe
+      final storiesInGroup = _isGroupedMode
+          ? (storyGroup['groupedStories'] as List<dynamic>)
+              .map((s) => s as Map<String, dynamic>)
+              .toList()
+          : [storyGroup];
+      
+      if (storiesInGroup.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -579,14 +622,33 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
         return;
       }
       
+      // 🎯 OPTIMISATION : Séparer les vidéos en stories individuelles
+      // pour éviter de charger toutes les vidéos en même temps
+      final List<Map<String, dynamic>> optimizedStories = [];
+      
+      for (var story in storiesInGroup) {
+        final mediaType = story['mediaType'] ?? 'text';
+        
+        if (mediaType == 'video') {
+          // Chaque vidéo devient une story séparée dans le viewer
+          optimizedStories.add(story);
+        } else {
+          // Les images/textes restent groupés normalement
+          optimizedStories.add(story);
+        }
+      }
+      
+      debugPrint('📊 Stories groupées: ${storiesInGroup.length}');
+      debugPrint('📊 Stories optimisées (dégroupées): ${optimizedStories.length}');
+      
       if (mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => StoryViewPage(
               token: token,
-              stories: List.from(stories), // Créer une copie pour éviter les problèmes
-              initialIndex: index < stories.length ? index : 0,
+              stories: List.from(optimizedStories),
+              initialIndex: 0, // Commencer par la première story du groupe
             ),
           ),
         ).then((result) {
@@ -600,79 +662,6 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur de chargement: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _deleteStory(String storyId) async {
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final token = appProvider.accessToken;
-    final messenger = ScaffoldMessenger.of(context);
-
-    if (token == null) return;
-
-    // Demander confirmation
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text(
-          'Supprimer la story',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Voulez-vous vraiment supprimer cette story ?',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      debugPrint('🗑️ Suppression de la story: $storyId');
-      await ApiService.deleteStory(token, storyId);
-      
-      if (mounted) {
-        // Recharger les stories
-        await _loadStories();
-        
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Story supprimée avec succès'),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('❌ Erreur suppression story: $e');
-      if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -980,7 +969,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                   : ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _stories.length + 1, // +1 pour "Votre Story"
+                      itemCount: _groupStoriesByUser(_stories).length + 1, // +1 pour "Votre Story"
                       itemBuilder: (context, index) {
                         if (index == 0) {
                           // Premier cercle : créer sa story
@@ -996,7 +985,9 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                           );
                         }
 
-                        final story = _stories[index - 1];
+                        final groupedStories = _groupStoriesByUser(_stories);
+                        final storyGroup = groupedStories[index - 1];
+                        final story = storyGroup; // La première story du groupe
                         final user = story['user'] as Map<String, dynamic>?;
                         final appProvider = Provider.of<AppProvider>(context, listen: false);
                         
@@ -1014,12 +1005,6 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                         final currentUserId = appProvider.currentUser?['_id'] as String?;
                         final isOwnStory = storyUserId != null && currentUserId != null && storyUserId == currentUserId;
                         
-                        debugPrint('🔍 Story ownership check:');
-                        debugPrint('   Story userId data: $storyUserIdData (type: ${storyUserIdData.runtimeType})');
-                        debugPrint('   Story userId extracted: $storyUserId');
-                        debugPrint('   Current user ID: $currentUserId');
-                        debugPrint('   Is own story: $isOwnStory');
-                        
                         // Récupérer le nom de l'utilisateur
                         String userName = 'Utilisateur';
                         if (user != null) {
@@ -1032,14 +1017,12 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                           }
                         }
                         
-                        debugPrint('👤 Story user: ${user?['name']} / ${user?['email']}');
-                        
-                        // Récupérer les informations media
+                        // Récupérer les informations media (de la première story)
                         final mediaType = story['mediaType'] ?? story['type'] ?? '';
                         final mediaUrl = story['mediaUrl'] ?? '';
                         final profileImage = user?['profileImage'] as String? ?? '';
                         final fullProfileImage = _getFullUrl(profileImage);
-                        final storyId = story['_id'] as String?;
+                        final storyCount = _isGroupedMode ? (storyGroup['storyCount'] as int? ?? 1) : 1;
                         
                         return Padding(
                           padding: const EdgeInsets.only(right: 12),
@@ -1050,10 +1033,8 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                             hasStory: true,
                             mediaUrl: mediaUrl.isNotEmpty ? _getFullUrl(mediaUrl) : null,
                             mediaType: mediaType.isNotEmpty ? mediaType : null,
-                            onTap: () => _navigateToViewStory(index - 1),
-                            onDelete: isOwnStory && storyId != null 
-                                ? () => _deleteStory(storyId)
-                                : null,
+                            storyCount: storyCount, // Nombre de stories groupées
+                            onTap: () => _navigateToViewStoryGroup(index - 1, groupedStories),
                           ),
                         );
                       },

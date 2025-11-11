@@ -95,16 +95,43 @@ class _MediaPlayerState extends State<MediaPlayer> {
         videoPlayerOptions: playerOptions,
         httpHeaders: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': '*/*',
+          'Connection': 'keep-alive',
         },
       );
       
       debugPrint('⏳ Waiting for initialization...');
-      await _controller!.initialize().timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          throw Exception('Timeout: La vidéo met trop de temps à charger');
-        },
-      );
+      
+      // Timeout augmenté à 60s pour les connexions lentes
+      try {
+        await _controller!.initialize().timeout(
+          const Duration(seconds: 60),
+          onTimeout: () {
+            debugPrint('⚠️ Video initialization timeout after 60s');
+            throw Exception('Timeout: La vidéo met trop de temps à charger (60s)');
+          },
+        );
+      } catch (e) {
+        if (e.toString().contains('Timeout')) {
+          // En cas de timeout, on essaie quand même de jouer
+          debugPrint('⚠️ Timeout but trying to play anyway...');
+          if (mounted && _controller != null) {
+            setState(() {
+              _isInitialized = true;
+              _hasError = false;
+            });
+            _controller!.addListener(_videoListener);
+            if (widget.autoPlay) {
+              await _controller!.play().catchError((error) {
+                debugPrint('❌ Play failed: $error');
+                throw error;
+              });
+            }
+            return;
+          }
+        }
+        rethrow;
+      }
       
       if (!mounted) return;
       
@@ -180,23 +207,36 @@ class _MediaPlayerState extends State<MediaPlayer> {
           _hasError = true;
           _errorMessage = _getFriendlyErrorMessage(_controller!.value.errorDescription ?? 'Erreur inconnue');
         });
+        widget.onError?.call();
         return;
       }
 
-      // Check if video finished - avec tolérance de 500ms
       final position = _controller!.value.position;
       final duration = _controller!.value.duration;
-      
-      // Vérifier que la durée est valide et que la position est vraiment à la fin
-      if (duration > Duration.zero && position.inMilliseconds > 0) {
-        final remaining = duration.inMilliseconds - position.inMilliseconds;
+      final isPlaying = _controller!.value.isPlaying;
+
+      // Nouvelle logique: La vidéo est terminée UNIQUEMENT quand:
+      // 1. Elle n'est plus en train de jouer (!isPlaying)
+      // 2. La position est >= à la durée - 1 seconde (pour éviter les faux positifs)
+      // 3. On n'a pas déjà appelé onFinished
+      if (duration > Duration.zero && 
+          position.inMilliseconds > 0 && 
+          !isPlaying && 
+          !_hasCalledOnFinished) {
         
-        // La vidéo est considérée terminée seulement si il reste moins de 500ms
-        if (remaining < 500 && remaining >= 0 && !_hasCalledOnFinished) {
-          if (!widget.loop && !_controller!.value.isPlaying) {
-            debugPrint('✅ Video reached end (${position.inSeconds}s/${duration.inSeconds}s), calling onFinished');
+        final secondsRemaining = (duration.inMilliseconds - position.inMilliseconds) / 1000;
+        
+        // Si la vidéo s'est arrêtée et qu'il reste moins d'1 seconde
+        if (secondsRemaining <= 1.0) {
+          if (!widget.loop) {
+            debugPrint('✅ Video stopped at end (${position.inSeconds}s/${duration.inSeconds}s, ${secondsRemaining.toStringAsFixed(2)}s remaining)');
             _hasCalledOnFinished = true;
-            widget.onFinished?.call();
+            // Petit délai pour s'assurer que la dernière frame est affichée
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (mounted) {
+                widget.onFinished?.call();
+              }
+            });
           }
         }
       }
