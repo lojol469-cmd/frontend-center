@@ -6,7 +6,7 @@ import 'app_theme.dart';
 class ThemeProvider extends ChangeNotifier {
   static const String _themeKey = 'selected_theme_id';
   
-  AppTheme _currentTheme = AppTheme.neonGreen;
+  AppTheme _currentTheme = AppTheme.darkOcean;
   bool _isLoading = true;
 
   AppTheme get currentTheme => _currentTheme;
@@ -62,8 +62,10 @@ class ThemeProvider extends ChangeNotifier {
   /// Basculer entre mode clair et sombre
   Future<void> toggleDarkMode() async {
     if (_currentTheme.isDark) {
-      // Passer au mode clair (Vert Néon par défaut)
-      await setTheme(AppTheme.neonGreen);
+      // Rester en mode sombre (basculer entre darkOcean et darkPurple)
+      await setTheme(_currentTheme.id == 'dark-ocean' 
+          ? AppTheme.darkPurple 
+          : AppTheme.darkOcean);
     } else {
       // Passer au mode sombre (Océan Sombre par défaut)
       await setTheme(AppTheme.darkOcean);
@@ -99,6 +101,6 @@ class ThemeProvider extends ChangeNotifier {
 
   /// Réinitialiser au thème par défaut
   Future<void> resetToDefault() async {
-    await setTheme(AppTheme.neonGreen);
+    await setTheme(AppTheme.darkOcean);
   }
 }

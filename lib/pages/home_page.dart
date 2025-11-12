@@ -51,9 +51,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     return Scaffold(
       body: ImageBackground(
         imagePath: _selectedImage,
-        opacity: 0.35, // Augmenté pour plus de vivacité
-        withGradient: true,
-        gradientColor: Colors.white,
+        opacity: 0.30, // Réduit pour éviter le voile blanc
+        withGradient: false, // Désactivé pour clarté maximale
         child: SafeArea(
           bottom: false, // Ne pas appliquer SafeArea en bas, on le gère manuellement
           child: CustomScrollView(

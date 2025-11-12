@@ -689,7 +689,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     return Scaffold(
       body: ImageBackground(
         imagePath: _selectedImage,
-        opacity: 0.25, // Augmenté mais subtil pour ne pas gêner la lecture
+        opacity: 0.20, // Réduit pour subtilité et clarté
         withGradient: true,
         gradientColor: const Color(0xFF000000),
         child: SafeArea(

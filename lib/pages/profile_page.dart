@@ -396,29 +396,30 @@ class _ProfilePageState extends State<ProfilePage> {
         return Scaffold(
           body: ImageBackground(
             imagePath: _selectedImage,
-            opacity: 0.35, // Augmenté pour page personnelle plus vivante
-            withGradient: true,
-            gradientColor: Colors.white,
+            opacity: 0.30, // Réduit pour éviter le voile blanc
+            withGradient: false, // Désactivé pour clarté maximale
             child: SafeArea(
               bottom: false, // Ne pas appliquer SafeArea en bas
-              child: ListView(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: 20 + MediaQuery.of(context).padding.bottom, // Ajouter padding système
-              ),
-              children: [
-                  _buildProfileHeader(context, user),
-                  const SizedBox(height: 24),
-                  _buildQuickStats(context, appProvider),
-                  const SizedBox(height: 24),
-                  const ThemeSelector(), // Sélecteur de thème
-                  const SizedBox(height: 24),
-                  _buildSettings(context, appProvider),
-                  const SizedBox(height: 24),
-                  _buildLogoutButton(context, appProvider),
-                ],
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 20,
+                  bottom: 20 + MediaQuery.of(context).padding.bottom, // Ajouter padding système
+                ),
+                child: Column(
+                  children: [
+                    _buildProfileHeader(context, user),
+                    const SizedBox(height: 24),
+                    _buildQuickStats(context, appProvider),
+                    const SizedBox(height: 24),
+                    const ThemeSelector(), // Sélecteur de thème
+                    const SizedBox(height: 24),
+                    _buildSettings(context, appProvider),
+                    const SizedBox(height: 24),
+                    _buildLogoutButton(context, appProvider),
+                  ],
+                ),
               ),
             ),
           ),

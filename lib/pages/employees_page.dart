@@ -156,7 +156,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
     return Scaffold(
       body: ImageBackground(
         imagePath: _selectedImage,
-        opacity: 0.22, // Augmenté pour environnement professionnel visible
+        opacity: 0.18, // Réduit pour environnement professionnel net
         withGradient: true,
         gradientColor: const Color(0xFF1A0033),
         child: SafeArea(

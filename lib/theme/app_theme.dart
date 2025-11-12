@@ -250,16 +250,8 @@ class AppTheme {
     ),
   );
 
-  /// Liste de tous les thèmes disponibles
+  /// Liste de tous les thèmes disponibles (uniquement dark)
   static const List<AppTheme> allThemes = [
-    neonGreen,
-    oceanBlue,
-    mysticPurple,
-    orangeSunset,
-    roseSakura,
-    electricCyan,
-    passionRed,
-    luxuryGold,
     darkOcean,
     darkPurple,
   ];
@@ -269,7 +261,7 @@ class AppTheme {
     try {
       return allThemes.firstWhere((theme) => theme.id == id);
     } catch (e) {
-      return neonGreen; // Thème par défaut
+      return darkOcean; // Thème par défaut (dark)
     }
   }
 

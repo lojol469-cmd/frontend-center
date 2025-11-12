@@ -58,7 +58,7 @@ class ImageBackground extends StatelessWidget {
           ),
         ),
 
-        // Dégradé TRÈS LÉGER pour améliorer la lisibilité
+        // Dégradé TRÈS SUBTIL pour améliorer la lisibilité (réduit pour éviter le voile blanc)
         if (withGradient)
           Positioned.fill(
             child: Container(
@@ -67,8 +67,8 @@ class ImageBackground extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    gradientColor.withValues(alpha: 0.1),
-                    gradientColor.withValues(alpha: 0.3),
+                    gradientColor.withValues(alpha: 0.02),
+                    gradientColor.withValues(alpha: 0.08),
                   ],
                 ),
               ),

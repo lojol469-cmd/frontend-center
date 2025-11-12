@@ -76,9 +76,8 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     return Scaffold(
       body: ImageBackground(
         imagePath: _selectedImage,
-        opacity: 0.4, // Augmenté pour effet zen visible
-        withGradient: true,
-        gradientColor: Colors.white,
+        opacity: 0.35, // Réduit pour éviter le voile blanc
+        withGradient: false, // Désactivé pour clarté maximale
         child: SafeArea(
           child: AnimatedBuilder(
             animation: _animationController,
