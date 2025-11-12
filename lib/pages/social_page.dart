@@ -4,8 +4,8 @@ import '../main.dart';
 import '../api_service.dart';
 import '../components/post_card.dart';
 import '../components/story_circle.dart';
-import '../components/aquatic_background.dart';
-import '../utils/video_manager.dart';
+import '../components/image_background.dart';
+import '../utils/background_image_manager.dart';
 import 'create_publication_page.dart';
 import 'map_view_page.dart';
 import 'comments_page.dart';
@@ -27,8 +27,8 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   late AnimationController _fabAnimationController;
   late Animation<double> _fabAnimation;
   bool _showFab = true;
-  late String _selectedVideo;
-  final VideoManager _videoManager = VideoManager();
+  late String _selectedImage;
+  final BackgroundImageManager _imageManager = BackgroundImageManager();
 
   // État de chargement et données depuis l'API
   bool _isLoading = false;
@@ -46,8 +46,8 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Sélectionner une vidéo dynamique pour le réseau social
-    _selectedVideo = _videoManager.getSocialPageVideo();
+    // Sélectionner une image pour le réseau social
+    _selectedImage = _imageManager.getImageForPage('social');
     
     _fabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),
@@ -687,9 +687,8 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AquaticBackground(
-        videoSource: _selectedVideo,
-        isAsset: true,
+      body: ImageBackground(
+        imagePath: _selectedImage,
         opacity: 0.25, // Augmenté mais subtil pour ne pas gêner la lecture
         withGradient: true,
         gradientColor: const Color(0xFF000000),

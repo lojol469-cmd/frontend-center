@@ -6,10 +6,10 @@ import 'package:provider/provider.dart';
 import '../components/futuristic_card.dart';
 import '../components/employee_card.dart';
 import '../components/department_chip.dart';
-import '../components/aquatic_background.dart';
+import '../components/image_background.dart';
 import '../api_service.dart';
 import '../main.dart';
-import '../utils/video_manager.dart';
+import '../utils/background_image_manager.dart';
 import 'employees/employee_detail_page.dart';
 import 'employees/department_employees_page.dart';
 import 'total_employees_page.dart';
@@ -36,8 +36,8 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
   List<Map<String, dynamic>> _employees = [];
   bool _isLoading = false;
   StreamSubscription? _webSocketSubscription;
-  late String _selectedVideo;
-  final VideoManager _videoManager = VideoManager();
+  late String _selectedImage;
+  final BackgroundImageManager _imageManager = BackgroundImageManager();
 
   final List<String> _departments = [
     'Tous',
@@ -68,7 +68,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 3, vsync: this);
-    _selectedVideo = _videoManager.getEmployeesPageVideo(); // Vidéo professionnelle
+    _selectedImage = _imageManager.getImageForPage('employees'); // Image professionnelle
     _loadEmployees();
     _listenToWebSocket();
   }
@@ -154,9 +154,8 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AquaticBackground(
-        videoSource: _selectedVideo,
-        isAsset: true,
+      body: ImageBackground(
+        imagePath: _selectedImage,
         opacity: 0.22, // Augmenté pour environnement professionnel visible
         withGradient: true,
         gradientColor: const Color(0xFF1A0033),

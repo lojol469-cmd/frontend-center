@@ -4,8 +4,8 @@ import '../main.dart';
 import '../components/futuristic_card.dart';
 import '../components/stats_card.dart';
 import '../components/quick_action_card.dart';
-import '../components/aquatic_background.dart';
-import '../utils/video_manager.dart';
+import '../components/image_background.dart';
+import '../utils/background_image_manager.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,14 +17,14 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
-  late String _selectedVideo;
-  final VideoManager _videoManager = VideoManager();
+  late String _selectedImage;
+  final BackgroundImageManager _imageManager = BackgroundImageManager();
 
   @override
   void initState() {
     super.initState();
-    // Sélectionner une vidéo longue pour l'accueil
-    _selectedVideo = _videoManager.getHomePageVideo();
+    // Sélectionner une image aléatoire au démarrage
+    _selectedImage = _imageManager.getImageForPage('home');
     
     _pulseController = AnimationController(
       duration: const Duration(seconds: 3),
@@ -49,9 +49,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AquaticBackground(
-        videoSource: _selectedVideo,
-        isAsset: true,
+      body: ImageBackground(
+        imagePath: _selectedImage,
         opacity: 0.35, // Augmenté pour plus de vivacité
         withGradient: true,
         gradientColor: Colors.white,

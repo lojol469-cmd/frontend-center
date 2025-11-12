@@ -5,8 +5,8 @@ import '../api_service.dart';
 import '../components/gradient_button.dart';
 import '../components/custom_text_field.dart';
 import '../components/connection_status.dart';
-import '../components/aquatic_background.dart';
-import '../utils/video_manager.dart';
+import '../components/image_background.dart';
+import '../utils/background_image_manager.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -25,8 +25,8 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   bool _isLoading = false;
   bool _showOtpField = false;
   String _message = '';
-  late String _selectedVideo;
-  final VideoManager _videoManager = VideoManager();
+  late String _selectedImage;
+  final BackgroundImageManager _imageManager = BackgroundImageManager();
   
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -35,8 +35,8 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    // Sélectionner une vidéo calme et lumineuse pour l'authentification
-    _selectedVideo = _videoManager.getAuthPageVideo();
+    // Sélectionner une image pour l'authentification
+    _selectedImage = _imageManager.getImageForPage('auth');
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -74,9 +74,8 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AquaticBackground(
-        videoSource: _selectedVideo,
-        isAsset: true,
+      body: ImageBackground(
+        imagePath: _selectedImage,
         opacity: 0.4, // Augmenté pour effet zen visible
         withGradient: true,
         gradientColor: Colors.white,

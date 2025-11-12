@@ -6,10 +6,9 @@ import '../main.dart';
 import '../api_service.dart';
 import '../components/futuristic_card.dart';
 import '../components/gradient_button.dart';
-import '../components/aquatic_background.dart';
+import '../components/image_background.dart';
 import '../components/theme_selector.dart';
-import '../utils/video_manager.dart';
-import '../theme/theme_provider.dart';
+import '../utils/background_image_manager.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -24,16 +23,15 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isLoadingStats = false;
   bool _isUploadingImage = false;
   final ImagePicker _picker = ImagePicker();
-  late String _selectedVideo;
-  final VideoManager _videoManager = VideoManager();
+  late String _selectedImage;
+  final BackgroundImageManager _imageManager = BackgroundImageManager();
 
   @override
   void initState() {
     super.initState();
-    _selectedVideo = _videoManager.getProfilePageVideo(); // Vidéo ultra-légère
+    _selectedImage = _imageManager.getImageForPage('profile'); // Image élégante
     _loadUserStats();
   }
-
   Future<void> _loadUserStats() async {
     // Éviter les appels simultanés - VÉRIFIER EN PREMIER
     if (_isLoadingStats) {
@@ -396,9 +394,8 @@ class _ProfilePageState extends State<ProfilePage> {
         final user = appProvider.currentUser;
 
         return Scaffold(
-          body: AquaticBackground(
-            videoSource: _selectedVideo,
-            isAsset: true,
+          body: ImageBackground(
+            imagePath: _selectedImage,
             opacity: 0.35, // Augmenté pour page personnelle plus vivante
             withGradient: true,
             gradientColor: Colors.white,
