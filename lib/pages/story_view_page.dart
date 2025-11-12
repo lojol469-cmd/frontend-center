@@ -232,6 +232,125 @@ class _StoryViewPageState extends State<StoryViewPage> {
     }
   }
 
+  // Afficher la liste des utilisateurs qui ont vu la story
+  Future<void> _showStoryViewers(String storyId) async {
+    try {
+      _togglePause(); // Mettre en pause pendant la consultation
+      
+      final result = await ApiService.getStoryViews(widget.token, storyId);
+      
+      if (!mounted) return;
+      
+      final viewers = result['viewers'] as List<dynamic>? ?? [];
+      final viewCount = result['viewCount'] ?? 0;
+      
+      showDialog(
+        context: context,
+        barrierColor: Colors.black87,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.visibility, color: Colors.blue, size: 24),
+              const SizedBox(width: 12),
+              Text(
+                'Vues ($viewCount)',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: viewers.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Aucune vue pour le moment',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: viewers.length,
+                    itemBuilder: (context, index) {
+                      final viewer = viewers[index];
+                      final name = viewer['name'] ?? 'Utilisateur';
+                      final email = viewer['email'] ?? '';
+                      final profilePic = viewer['profilePicture'] ?? '';
+                      final viewedAt = viewer['viewedAt'];
+                      final timeAgo = _formatTimeAgo(viewedAt);
+                      
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue.withValues(alpha: 0.3),
+                          backgroundImage: profilePic.isNotEmpty
+                              ? NetworkImage(_getFullUrl(profilePic))
+                              : null,
+                          child: profilePic.isEmpty
+                              ? Text(
+                                  name[0].toUpperCase(),
+                                  style: const TextStyle(color: Colors.white),
+                                )
+                              : null,
+                        ),
+                        title: Text(
+                          name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          email,
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing: Text(
+                          timeAgo,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _togglePause(); // Reprendre la lecture
+              },
+              child: const Text(
+                'Fermer',
+                style: TextStyle(color: Colors.blue),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ Erreur récupération vues: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showDeleteConfirmation(int index) {
     showDialog(
       context: context,
@@ -502,6 +621,8 @@ class _StoryViewPageState extends State<StoryViewPage> {
     final profileImage = _getFullUrl(rawProfileImage); // Transformer l'URL
     final createdAt = story['createdAt'];
     final timeAgo = _formatTimeAgo(createdAt);
+    final viewCount = story['viewCount'] ?? 0;
+    final isOwner = _isOwner(story);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -534,12 +655,45 @@ class _StoryViewPageState extends State<StoryViewPage> {
                     fontSize: 15,
                   ),
                 ),
-                Text(
-                  timeAgo,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      timeAgo,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (isOwner && viewCount > 0) ...[
+                      const SizedBox(width: 8),
+                      const Text(
+                        '•',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => _showStoryViewers(story['_id']),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.visibility,
+                              size: 14,
+                              color: Colors.white70,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$viewCount',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),

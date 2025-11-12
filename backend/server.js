@@ -209,6 +209,8 @@ const User = mongoose.model('User', userSchema);
 // Modèle Employé
 const employeeSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  firstName: { type: String, default: '' },
+  lastName: { type: String, default: '' },
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
   role: { type: String, default: '' },
@@ -302,6 +304,10 @@ const storySchema = new mongoose.Schema({
   duration: { type: Number, default: 5 }, // Durée d'affichage en secondes
   expiresAt: { type: Date, required: true }, // Date d'expiration (24h après création)
   viewedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Liste des utilisateurs qui ont vu
+  views: [{ // Vues détaillées avec timestamps
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    viewedAt: { type: Date, default: Date.now }
+  }],
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
 });
@@ -1751,6 +1757,17 @@ app.get('/api/employees', verifyToken, verifyCanCreateEmployees, async (req, res
     const employeesWithStatus = employees.map(emp => {
       const empObj = emp.toObject();
       
+      // DEBUG: Log pour voir les données brutes
+      if (!empObj.name || empObj.name.includes('null')) {
+        console.log('⚠️ Employé avec nom problématique:', {
+          id: empObj._id,
+          name: empObj.name,
+          email: empObj.email,
+          firstName: empObj.firstName,
+          lastName: empObj.lastName
+        });
+      }
+      
       // Si l'email de l'employé correspond à l'utilisateur connecté, il est en ligne
       if (currentUserEmail && empObj.email === currentUserEmail) {
         empObj.status = 'online';
@@ -2227,6 +2244,53 @@ app.get('/api/server-info', (req, res) => {
 // ========================================
 // DÉMARRAGE DU SERVEUR
 // ========================================
+
+// 🔧 ENDPOINT DE MAINTENANCE: Nettoyer les employés avec "null null"
+app.post('/api/admin/fix-employee-names', verifyToken, async (req, res) => {
+  try {
+    const employees = await Employee.find({});
+    let fixedCount = 0;
+    let errorCount = 0;
+
+    for (const emp of employees) {
+      let needsUpdate = false;
+      const updates = {};
+
+      // Vérifier si le nom contient "null" ou est vide
+      if (!emp.name || emp.name.includes('null') || emp.name.trim() === '') {
+        // Extraire le nom de l'email
+        const emailName = emp.email.split('@')[0];
+        updates.name = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        try {
+          await Employee.updateOne({ _id: emp._id }, { $set: updates });
+          fixedCount++;
+          console.log(`✅ Employé ${emp._id} corrigé: ${emp.name} → ${updates.name}`);
+        } catch (err) {
+          errorCount++;
+          console.error(`❌ Erreur correction ${emp._id}:`, err.message);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Nettoyage terminé: ${fixedCount} employés corrigés, ${errorCount} erreurs`,
+      fixed: fixedCount,
+      errors: errorCount,
+      total: employees.length
+    });
+  } catch (err) {
+    console.error('Erreur nettoyage employés:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors du nettoyage',
+      error: err.message 
+    });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
@@ -2712,7 +2776,7 @@ app.get('/api/stories', verifyToken, async (req, res) => {
         },
         createdAt: story.createdAt,
         expiresAt: story.expiresAt,
-        viewCount: story.viewedBy?.length || 0,
+        viewCount: story.views?.length || story.viewedBy?.length || 0,
         isViewed: isViewed,
         viewedBy: story.viewedBy || []
       };
@@ -2849,20 +2913,69 @@ app.post('/api/stories/:id/view', verifyToken, async (req, res) => {
     }
 
     // Vérifier si déjà vu
-    if (!story.viewedBy.includes(req.user.userId)) {
+    const alreadyViewed = story.viewedBy.includes(req.user.userId);
+    
+    if (!alreadyViewed) {
       story.viewedBy.push(req.user.userId);
+      story.views.push({
+        userId: req.user.userId,
+        viewedAt: new Date()
+      });
       await story.save();
     }
 
     res.json({
       success: true,
       message: 'Story marquée comme vue',
-      viewCount: story.viewedBy.length
+      viewCount: story.viewedBy.length,
+      alreadyViewed
     });
   } catch (err) {
     console.error('Erreur marquage vue story:', err);
     res.status(500).json({ 
       message: 'Erreur lors du marquage de la story',
+      error: err.message 
+    });
+  }
+});
+
+// Récupérer les vues d'une story avec les profils des utilisateurs
+app.get('/api/stories/:id/views', verifyToken, async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.id)
+      .populate({
+        path: 'views.userId',
+        select: 'name email profilePicture role department'
+      });
+    
+    if (!story) {
+      return res.status(404).json({ message: 'Story non trouvée' });
+    }
+
+    // Vérifier que c'est l'auteur de la story
+    if (story.userId.toString() !== req.user.userId) {
+      return res.status(403).json({ 
+        message: 'Seul l\'auteur peut voir qui a vu sa story' 
+      });
+    }
+
+    res.json({
+      success: true,
+      viewCount: story.views.length,
+      viewers: story.views.map(view => ({
+        id: view.userId._id,
+        name: view.userId.name,
+        email: view.userId.email,
+        profilePicture: view.userId.profilePicture,
+        role: view.userId.role,
+        department: view.userId.department,
+        viewedAt: view.viewedAt
+      }))
+    });
+  } catch (err) {
+    console.error('Erreur récupération vues story:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la récupération des vues',
       error: err.message 
     });
   }

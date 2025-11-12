@@ -1326,6 +1326,30 @@ class ApiService {
     }
   }
 
+  // Récupérer les vues d'une story (avec profils des utilisateurs)
+  static Future<Map<String, dynamic>> getStoryViews(String token, String storyId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/stories/$storyId/views'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else if (response.statusCode == 403) {
+        throw Exception('Seul l\'auteur peut voir qui a vu sa story');
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération des vues');
+      }
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
   // Supprimer une story
   static Future<Map<String, dynamic>> deleteStory(String token, String storyId) async {
     await _ensureInitialized();
