@@ -8,6 +8,7 @@ import '../components/futuristic_card.dart';
 import '../components/gradient_button.dart';
 import '../components/image_background.dart';
 import '../components/theme_selector.dart';
+import '../theme/theme_provider.dart';
 import '../utils/background_image_manager.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -892,13 +893,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // Paramètres de thème
   Future<void> _showThemeSettings(BuildContext context, AppProvider appProvider) async {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    
     final colorThemes = [
-      {'name': 'Cyan & Orange (Défaut)', 'primary': const Color(0xFF00D4FF), 'secondary': const Color(0xFFFF6B35)},
-      {'name': 'Bleu & Violet', 'primary': const Color(0xFF2196F3), 'secondary': const Color(0xFF9C27B0)},
-      {'name': 'Vert & Jaune', 'primary': const Color(0xFF4CAF50), 'secondary': const Color(0xFFFFC107)},
-      {'name': 'Rose & Indigo', 'primary': const Color(0xFFE91E63), 'secondary': const Color(0xFF3F51B5)},
-      {'name': 'Orange & Rouge', 'primary': const Color(0xFFFF9800), 'secondary': const Color(0xFFF44336)},
-      {'name': 'Teal & Amber', 'primary': const Color(0xFF009688), 'secondary': const Color(0xFFFFC107)},
+      {'name': 'Cyan & Orange (Défaut)', 'themeId': 'cyan_orange', 'primary': const Color(0xFF00D4FF), 'secondary': const Color(0xFFFF6B35)},
+      {'name': 'Bleu & Violet', 'themeId': 'blue_violet', 'primary': const Color(0xFF2196F3), 'secondary': const Color(0xFF9C27B0)},
+      {'name': 'Vert & Jaune', 'themeId': 'green_yellow', 'primary': const Color(0xFF4CAF50), 'secondary': const Color(0xFFFFC107)},
+      {'name': 'Rose & Indigo', 'themeId': 'pink_indigo', 'primary': const Color(0xFFE91E63), 'secondary': const Color(0xFF3F51B5)},
+      {'name': 'Orange & Rouge', 'themeId': 'orange_red', 'primary': const Color(0xFFFF9800), 'secondary': const Color(0xFFF44336)},
+      {'name': 'Teal & Amber', 'themeId': 'teal_amber', 'primary': const Color(0xFF009688), 'secondary': const Color(0xFFFFC107)},
     ];
 
     await showDialog(
@@ -916,15 +919,19 @@ class _ProfilePageState extends State<ProfilePage> {
             itemCount: colorThemes.length,
             itemBuilder: (context, index) {
               final theme = colorThemes[index];
+              final isSelected = themeProvider.currentTheme.id == theme['themeId'];
+              
               return _buildThemeOption(
                 context,
                 theme['name'] as String,
                 theme['primary'] as Color,
                 theme['secondary'] as Color,
-                () {
-                  // Note: La sauvegarde du thème sera implémentée avec SharedPreferences
+                isSelected,
+                () async {
+                  final themeId = theme['themeId'] as String;
+                  await themeProvider.setThemeById(themeId);
                   Navigator.pop(context);
-                  _showMessage('Thème "${theme['name']}" sélectionné ! (Redémarrez l\'app pour appliquer)');
+                  _showMessage('Thème "${theme['name']}" appliqué !');
                 },
               );
             },
@@ -945,6 +952,7 @@ class _ProfilePageState extends State<ProfilePage> {
     String name,
     Color primaryColor,
     Color secondaryColor,
+    bool isSelected,
     VoidCallback onTap,
   ) {
     return InkWell(
@@ -953,11 +961,13 @@ class _ProfilePageState extends State<ProfilePage> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
+          color: isSelected ? const Color(0xFF3A3A3A) : const Color(0xFF2A2A2A),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-            width: 1,
+            color: isSelected 
+                ? primaryColor.withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.1),
+            width: isSelected ? 2 : 1,
           ),
         ),
         child: Row(
@@ -971,6 +981,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   decoration: BoxDecoration(
                     color: primaryColor,
                     shape: BoxShape.circle,
+                    border: isSelected 
+                        ? Border.all(color: Colors.white, width: 2)
+                        : null,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -980,6 +993,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   decoration: BoxDecoration(
                     color: secondaryColor,
                     shape: BoxShape.circle,
+                    border: isSelected 
+                        ? Border.all(color: Colors.white, width: 2)
+                        : null,
                   ),
                 ),
               ],

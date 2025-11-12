@@ -250,8 +250,146 @@ class AppTheme {
     ),
   );
 
-  /// Liste de tous les thèmes disponibles (uniquement dark)
+  /// Thème Cyan & Orange (Défaut)
+  static const cyanOrange = AppTheme(
+    id: 'cyan_orange',
+    name: 'Cyan & Orange',
+    icon: '🎨',
+    primary: Color(0xFF00D4FF),
+    secondary: Color(0xFFFF6B35),
+    accent: Color(0xFF00A8CC),
+    background: Color(0xFF0A0A0A),
+    surface: Color(0xFF1A1A1A),
+    text: Colors.white,
+    textSecondary: Color(0xFFBBBBBB),
+    gradient: LinearGradient(
+      colors: [Color(0xFF00D4FF), Color(0xFFFF6B35)],
+    ),
+    cardGradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+    ),
+  );
+
+  /// Thème Bleu & Violet
+  static const blueViolet = AppTheme(
+    id: 'blue_violet',
+    name: 'Bleu & Violet',
+    icon: '💙',
+    primary: Color(0xFF2196F3),
+    secondary: Color(0xFF9C27B0),
+    accent: Color(0xFF1976D2),
+    background: Color(0xFF0A0A0A),
+    surface: Color(0xFF1A1A1A),
+    text: Colors.white,
+    textSecondary: Color(0xFFBBBBBB),
+    gradient: LinearGradient(
+      colors: [Color(0xFF2196F3), Color(0xFF9C27B0)],
+    ),
+    cardGradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+    ),
+  );
+
+  /// Thème Vert & Jaune
+  static const greenYellow = AppTheme(
+    id: 'green_yellow',
+    name: 'Vert & Jaune',
+    icon: '💚',
+    primary: Color(0xFF4CAF50),
+    secondary: Color(0xFFFFC107),
+    accent: Color(0xFF388E3C),
+    background: Color(0xFF0A0A0A),
+    surface: Color(0xFF1A1A1A),
+    text: Colors.white,
+    textSecondary: Color(0xFFBBBBBB),
+    gradient: LinearGradient(
+      colors: [Color(0xFF4CAF50), Color(0xFFFFC107)],
+    ),
+    cardGradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+    ),
+  );
+
+  /// Thème Rose & Indigo
+  static const pinkIndigo = AppTheme(
+    id: 'pink_indigo',
+    name: 'Rose & Indigo',
+    icon: '💖',
+    primary: Color(0xFFE91E63),
+    secondary: Color(0xFF3F51B5),
+    accent: Color(0xFFC2185B),
+    background: Color(0xFF0A0A0A),
+    surface: Color(0xFF1A1A1A),
+    text: Colors.white,
+    textSecondary: Color(0xFFBBBBBB),
+    gradient: LinearGradient(
+      colors: [Color(0xFFE91E63), Color(0xFF3F51B5)],
+    ),
+    cardGradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+    ),
+  );
+
+  /// Thème Orange & Rouge
+  static const orangeRed = AppTheme(
+    id: 'orange_red',
+    name: 'Orange & Rouge',
+    icon: '🔥',
+    primary: Color(0xFFFF9800),
+    secondary: Color(0xFFF44336),
+    accent: Color(0xFFF57C00),
+    background: Color(0xFF0A0A0A),
+    surface: Color(0xFF1A1A1A),
+    text: Colors.white,
+    textSecondary: Color(0xFFBBBBBB),
+    gradient: LinearGradient(
+      colors: [Color(0xFFFF9800), Color(0xFFF44336)],
+    ),
+    cardGradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+    ),
+  );
+
+  /// Thème Teal & Amber
+  static const tealAmber = AppTheme(
+    id: 'teal_amber',
+    name: 'Teal & Amber',
+    icon: '🌊',
+    primary: Color(0xFF009688),
+    secondary: Color(0xFFFFC107),
+    accent: Color(0xFF00796B),
+    background: Color(0xFF0A0A0A),
+    surface: Color(0xFF1A1A1A),
+    text: Colors.white,
+    textSecondary: Color(0xFFBBBBBB),
+    gradient: LinearGradient(
+      colors: [Color(0xFF009688), Color(0xFFFFC107)],
+    ),
+    cardGradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+    ),
+  );
+
+  /// Liste de tous les thèmes disponibles
   static const List<AppTheme> allThemes = [
+    cyanOrange,
+    blueViolet,
+    greenYellow,
+    pinkIndigo,
+    orangeRed,
+    tealAmber,
     darkOcean,
     darkPurple,
   ];
