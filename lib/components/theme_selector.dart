@@ -20,7 +20,7 @@ class ThemeSelector extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: currentTheme.primary.withOpacity(0.1),
+                color: currentTheme.primary.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -137,14 +137,14 @@ class _ThemeCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? theme.primary : Colors.grey.withOpacity(0.3),
+            color: isSelected ? theme.primary : Colors.grey.withValues(alpha: 0.3),
             width: isSelected ? 3 : 1,
           ),
           gradient: theme.gradient,
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: theme.primary.withOpacity(0.3),
+                    color: theme.primary.withValues(alpha: 0.3),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
