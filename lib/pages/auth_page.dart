@@ -77,7 +77,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       body: AquaticBackground(
         videoSource: _selectedVideo,
         isAsset: true,
-        opacity: 0.2, // Un peu plus visible pour l'effet zen
+        opacity: 0.4, // Augmenté pour effet zen visible
         withGradient: true,
         gradientColor: Colors.white,
         child: SafeArea(

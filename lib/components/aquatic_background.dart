@@ -106,17 +106,18 @@ class _AquaticBackgroundState extends State<AquaticBackground> {
         if (_isInitialized && !_hasError)
           Opacity(
             opacity: widget.opacity,
-            child: FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: _controller.value.size.width,
-                height: _controller.value.size.height,
-                child: VideoPlayer(_controller),
+            child: Transform.scale(
+              scale: 1.0, // Pas de zoom pour garder la qualité
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: _controller.value.aspectRatio,
+                  child: VideoPlayer(_controller),
+                ),
               ),
             ),
           ),
 
-        // Dégradé pour améliorer la lisibilité
+        // Dégradé TRÈS LÉGER pour améliorer la lisibilité
         if (widget.withGradient)
           Container(
             decoration: BoxDecoration(
@@ -124,8 +125,8 @@ class _AquaticBackgroundState extends State<AquaticBackground> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  widget.gradientColor.withValues(alpha: 0.3),
-                  widget.gradientColor.withValues(alpha: 0.6),
+                  widget.gradientColor.withValues(alpha: 0.15), // Plus léger
+                  widget.gradientColor.withValues(alpha: 0.35), // Plus léger
                 ],
               ),
             ),

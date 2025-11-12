@@ -690,7 +690,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
       body: AquaticBackground(
         videoSource: _selectedVideo,
         isAsset: true,
-        opacity: 0.12, // Très subtil pour ne pas gêner la lecture
+        opacity: 0.25, // Augmenté mais subtil pour ne pas gêner la lecture
         withGradient: true,
         gradientColor: const Color(0xFF000000),
         child: SafeArea(

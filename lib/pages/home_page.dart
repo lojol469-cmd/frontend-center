@@ -52,7 +52,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       body: AquaticBackground(
         videoSource: _selectedVideo,
         isAsset: true,
-        opacity: 0.15, // Très subtil pour ne pas distraire
+        opacity: 0.35, // Augmenté pour plus de vivacité
         withGradient: true,
         gradientColor: Colors.white,
         child: SafeArea(

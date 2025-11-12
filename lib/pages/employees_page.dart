@@ -157,7 +157,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
       body: AquaticBackground(
         videoSource: _selectedVideo,
         isAsset: true,
-        opacity: 0.1, // Très subtil pour environnement professionnel
+        opacity: 0.22, // Augmenté pour environnement professionnel visible
         withGradient: true,
         gradientColor: const Color(0xFF1A0033),
         child: SafeArea(

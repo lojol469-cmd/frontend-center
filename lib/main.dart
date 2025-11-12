@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'pages/main_page.dart';
 import 'api_service.dart';
 import 'websocket_service.dart';
+import 'theme/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,11 +44,14 @@ class CenterApp extends StatelessWidget {
             return provider;
           },
         ),
+        ChangeNotifierProvider(
+          create: (_) => ThemeProvider(), // Gestionnaire de thèmes
+        ),
       ],
-      child: Consumer<AppProvider>(
-        builder: (context, appProvider, _) {
+      child: Consumer2<AppProvider, ThemeProvider>(
+        builder: (context, appProvider, themeProvider, _) {
           // Afficher un loading pendant l'initialisation
-          if (!appProvider.isInitialized) {
+          if (!appProvider.isInitialized || themeProvider.isLoading) {
             return MaterialApp(
               debugShowCheckedModeBanner: false,
               home: Scaffold(
@@ -72,7 +76,7 @@ class CenterApp extends StatelessWidget {
           return MaterialApp(
             title: 'Center - Personnel & Social',
             debugShowCheckedModeBanner: false,
-            theme: _buildTheme(),
+            theme: _buildTheme(themeProvider),
             home: const MainPage(),
           );
         },
@@ -80,29 +84,39 @@ class CenterApp extends StatelessWidget {
     );
   }
 
-  ThemeData _buildTheme() {
+  ThemeData _buildTheme(ThemeProvider themeProvider) {
+    final theme = themeProvider.currentTheme;
+    
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
-      colorScheme: const ColorScheme.light(
-        primary: Color(0xFF00FF88), // Bright green
-        secondary: Color(0xFF00CC66), // Medium green
-        tertiary: Color(0xFF009944), // Dark green
-        surface: Colors.white,
-        onSurface: Colors.black,
-        outline: Color(0xFF00FF88), // Green borders
+      brightness: theme.isDark ? Brightness.dark : Brightness.light,
+      colorScheme: ColorScheme(
+        brightness: theme.isDark ? Brightness.dark : Brightness.light,
+        primary: theme.primary,
+        onPrimary: theme.isDark ? Colors.white : Colors.black,
+        secondary: theme.secondary,
+        onSecondary: theme.isDark ? Colors.white : Colors.black,
+        tertiary: theme.accent,
+        onTertiary: theme.isDark ? Colors.white : Colors.black,
+        error: Colors.red,
+        onError: Colors.white,
+        surface: theme.surface,
+        onSurface: theme.text,
+        outline: theme.primary,
       ),
       textTheme: GoogleFonts.interTextTheme().apply(
-        bodyColor: Colors.black,
-        displayColor: Colors.black,
+        bodyColor: theme.text,
+        displayColor: theme.text,
       ),
-      scaffoldBackgroundColor: Colors.white,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
+      scaffoldBackgroundColor: theme.background,
+      appBarTheme: AppBarTheme(
+        backgroundColor: theme.background,
         elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
-        foregroundColor: Colors.black,
-        surfaceTintColor: Colors.white,
+        systemOverlayStyle: theme.isDark 
+            ? SystemUiOverlayStyle.light 
+            : SystemUiOverlayStyle.dark,
+        foregroundColor: theme.text,
+        surfaceTintColor: theme.surface,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(

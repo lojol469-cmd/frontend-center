@@ -7,7 +7,9 @@ import '../api_service.dart';
 import '../components/futuristic_card.dart';
 import '../components/gradient_button.dart';
 import '../components/aquatic_background.dart';
+import '../components/theme_selector.dart';
 import '../utils/video_manager.dart';
+import '../theme/theme_provider.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -397,7 +399,7 @@ class _ProfilePageState extends State<ProfilePage> {
           body: AquaticBackground(
             videoSource: _selectedVideo,
             isAsset: true,
-            opacity: 0.15, // Léger pour page personnelle
+            opacity: 0.35, // Augmenté pour page personnelle plus vivante
             withGradient: true,
             gradientColor: Colors.white,
             child: SafeArea(
@@ -413,6 +415,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildProfileHeader(context, user),
                   const SizedBox(height: 24),
                   _buildQuickStats(context, appProvider),
+                  const SizedBox(height: 24),
+                  const ThemeSelector(), // Sélecteur de thème
                   const SizedBox(height: 24),
                   _buildSettings(context, appProvider),
                   const SizedBox(height: 24),
