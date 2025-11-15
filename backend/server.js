@@ -202,7 +202,17 @@ const userSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'blocked', 'admin'], default: 'active' },
   otp: { type: String },
   otpExpires: { type: Date },
-  savedPublications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Publication' }]
+  savedPublications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Publication' }],
+  // Token FCM pour les notifications push
+  fcmToken: { type: String, default: '' },
+  // Préférences de notifications
+  notificationSettings: {
+    likes: { type: Boolean, default: true },
+    comments: { type: Boolean, default: true },
+    followers: { type: Boolean, default: true },
+    messages: { type: Boolean, default: true },
+    publications: { type: Boolean, default: true }
+  }
 });
 const User = mongoose.model('User', userSchema);
 
@@ -775,6 +785,197 @@ app.post('/api/auth/admin-login', async (req, res) => {
 });
 
 // ========================================
+// ROUTES : NOTIFICATIONS PUSH
+// ========================================
+
+// Mettre à jour le token FCM de l'utilisateur
+app.post('/api/users/fcm-token', verifyToken, async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    
+    if (!fcmToken) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Token FCM requis' 
+      });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Utilisateur non trouvé' 
+      });
+    }
+
+    user.fcmToken = fcmToken;
+    await user.save();
+
+    console.log(`✅ Token FCM mis à jour pour ${user.email}`);
+    res.json({ 
+      success: true,
+      message: 'Token FCM mis à jour' 
+    });
+  } catch (error) {
+    console.error('❌ Erreur mise à jour token FCM:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+// Fonction helper pour envoyer une notification push
+async function sendPushNotification(userId, notification) {
+  try {
+    const user = await User.findById(userId);
+    if (!user || !user.fcmToken) {
+      console.log(`⚠️ Pas de token FCM pour user ${userId}`);
+    }
+
+    // Créer la notification en base de données
+    const notifDoc = new Notification({
+      userId: userId,
+      type: notification.data?.type || 'system',
+      title: notification.title,
+      message: notification.body,
+      data: notification.data || {},
+      isRead: false
+    });
+    await notifDoc.save();
+    console.log(`✅ Notification enregistrée en DB pour user ${userId}`);
+
+    // Structure de la notification Firebase (si token disponible)
+    if (user && user.fcmToken) {
+      const message = {
+        to: user.fcmToken,
+        notification: {
+          title: notification.title,
+          body: notification.body,
+          sound: 'default',
+          badge: '1',
+        },
+        data: notification.data || {},
+        priority: 'high',
+        content_available: true,
+      };
+
+      // TODO: Implémenter l'envoi avec Firebase Admin SDK
+      // Pour l'instant, on log juste
+      console.log('📤 Notification à envoyer:', message);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erreur envoi notification:', error);
+    return { success: false, error };
+  }
+}
+
+// Envoyer une notification à un utilisateur
+app.post('/api/notifications/send', verifyToken, async (req, res) => {
+  try {
+    const { userId, title, body, type, data } = req.body;
+    
+    if (!userId || !title || !body) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Données manquantes' 
+      });
+    }
+
+    // Créer la notification en base
+    const notification = new Notification({
+      userId,
+      type: type || 'system',
+      title,
+      message: body,
+      data,
+      read: false
+    });
+    await notification.save();
+
+    // Envoyer la push notification
+    await sendPushNotification(userId, {
+      title,
+      body,
+      data: { ...data, type, notificationId: notification._id.toString() }
+    });
+
+    res.json({ 
+      success: true,
+      message: 'Notification envoyée',
+      notification 
+    });
+  } catch (error) {
+    console.error('❌ Erreur envoi notification:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+// Récupérer les notifications de l'utilisateur
+app.get('/api/notifications', verifyToken, async (req, res) => {
+  try {
+    const notifications = await Notification.find({ 
+      userId: req.user.userId 
+    })
+    .sort({ createdAt: -1 })
+    .limit(50);
+
+    const unreadCount = await Notification.countDocuments({
+      userId: req.user.userId,
+      read: false
+    });
+
+    res.json({ 
+      success: true,
+      notifications,
+      unreadCount
+    });
+  } catch (error) {
+    console.error('❌ Erreur récupération notifications:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+// Marquer une notification comme lue
+app.put('/api/notifications/:id/read', verifyToken, async (req, res) => {
+  try {
+    const notification = await Notification.findOne({
+      _id: req.params.id,
+      userId: req.user.userId
+    });
+
+    if (!notification) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Notification non trouvée' 
+      });
+    }
+
+    notification.read = true;
+    await notification.save();
+
+    res.json({ 
+      success: true,
+      notification 
+    });
+  } catch (error) {
+    console.error('❌ Erreur mise à jour notification:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+// ========================================
 // ROUTES : PROFIL UTILISATEUR
 // ========================================
 
@@ -1267,13 +1468,33 @@ app.delete('/api/publications/:id', verifyToken, async (req, res) => {
 });
 
 app.post('/api/publications/:id/like', verifyToken, async (req, res) => {
-  const pub = await Publication.findById(req.params.id);
+  const pub = await Publication.findById(req.params.id).populate('userId', 'name fcmToken notificationSettings');
   const index = pub.likes.indexOf(req.user.userId);
-  if (index > -1) pub.likes.splice(index, 1);
-  else pub.likes.push(req.user.userId);
+  const isLiking = index === -1;
+  
+  if (index > -1) {
+    pub.likes.splice(index, 1);
+  } else {
+    pub.likes.push(req.user.userId);
+    
+    // Envoyer une notification au propriétaire de la publication
+    if (pub.userId._id.toString() !== req.user.userId && pub.userId.notificationSettings?.likes !== false) {
+      const liker = await User.findById(req.user.userId).select('name');
+      await sendPushNotification(pub.userId._id, {
+        title: '❤️ Nouveau like',
+        body: `${liker.name} a aimé votre publication`,
+        data: {
+          type: 'like',
+          publicationId: pub._id.toString(),
+          userId: req.user.userId
+        }
+      });
+    }
+  }
+  
   await pub.save();
 
-  res.json({ message: index > -1 ? 'Like retiré' : 'Liké', likesCount: pub.likes.length });
+  res.json({ message: isLiking ? 'Liké' : 'Like retiré', likesCount: pub.likes.length });
 });
 
 // Sauvegarder une publication
@@ -1436,6 +1657,23 @@ app.post('/api/publications/:id/comments', verifyToken, commentUpload.array('med
         type: 'new_comment',
         publicationId: req.params.id,
         comment: formattedComment
+      });
+    }
+
+    // Envoyer une notification au propriétaire de la publication
+    await pub.populate('userId', 'name fcmToken notificationSettings');
+    if (pub.userId._id.toString() !== req.user.userId && pub.userId.notificationSettings?.comments !== false) {
+      const commenter = await User.findById(req.user.userId).select('name');
+      const commentText = content?.trim() || '[média]';
+      await sendPushNotification(pub.userId._id, {
+        title: '💬 Nouveau commentaire',
+        body: `${commenter.name}: ${commentText.substring(0, 100)}`,
+        data: {
+          type: 'comment',
+          publicationId: pub._id.toString(),
+          commentId: addedComment._id.toString(),
+          userId: req.user.userId
+        }
       });
     }
 

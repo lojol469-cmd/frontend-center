@@ -919,6 +919,10 @@ class _CommentsPageState extends State<CommentsPage> {
                 Expanded(
                   child: TextField(
                     controller: _messageController,
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 15,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Écrivez un message...',
                       hintStyle: TextStyle(color: Colors.grey.shade500),
