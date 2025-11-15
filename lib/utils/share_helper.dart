@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import 'dart:io';
 
 class ShareHelper {
@@ -313,5 +314,142 @@ ${content.isNotEmpty ? content : 'Découvre ces photos !'}
         ),
       ),
     );
+  }
+
+  /// Génère un lien de partage pour une publication avec deep link
+  /// Ce lien ouvre directement la publication dans l'app CENTER
+  static Future<void> sharePublicationLink({
+    required BuildContext context,
+    required String publicationId,
+    required String userName,
+    required String content,
+    String? mediaUrl,
+    String mediaType = 'image',
+  }) async {
+    try {
+      // URL de base de votre domaine (à remplacer par votre domaine)
+      const String appDomain = 'center-app.com'; // Remplacer par votre domaine
+      final String deepLink = 'https://$appDomain/publication/$publicationId';
+      
+      // Emoji selon le type de média
+      final emoji = mediaType == 'video' ? '🎬' : '📸';
+      
+      // Texte de partage enrichi
+      final shareText = '''
+$emoji $userName a partagé sur CENTER
+
+${content.isNotEmpty ? (content.length > 100 ? '${content.substring(0, 100)}...' : content) : 'Découvre ce contenu exclusif !'}
+
+👉 Voir la publication complète :
+$deepLink
+
+📱 Télécharge CENTER pour découvrir plus de contenus
+      '''.trim();
+
+      // Si un média est disponible, télécharger et partager avec prévisualisation
+      if (mediaUrl != null && mediaUrl.isNotEmpty) {
+        _showLoadingDialog(context);
+        
+        try {
+          // Télécharger le média dans le dossier temporaire
+          final response = await http.get(Uri.parse(mediaUrl));
+          
+          if (response.statusCode == 200) {
+            final tempDir = await getTemporaryDirectory();
+            final fileName = path.basename(mediaUrl);
+            final tempFile = File('${tempDir.path}/$fileName');
+            await tempFile.writeAsBytes(response.bodyBytes);
+            
+            if (context.mounted) {
+              Navigator.of(context).pop(); // Fermer le dialog de chargement
+            }
+            
+            // Partager avec le média en prévisualisation
+            final result = await Share.shareXFiles(
+              [XFile(tempFile.path)],
+              text: shareText,
+              subject: '$emoji Publication de $userName - CENTER',
+            );
+            
+            // Nettoyer le fichier temporaire après un délai
+            Future.delayed(const Duration(seconds: 30), () {
+              if (tempFile.existsSync()) {
+                tempFile.delete();
+              }
+            });
+            
+            // Afficher confirmation si partagé avec succès
+            if (context.mounted && result.status == ShareResultStatus.success) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.white),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Publication partagée avec ${mediaType == 'video' ? 'vidéo' : 'photo'} !',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: const Color(0xFF00FF88),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              );
+            }
+            return;
+          }
+        } catch (e) {
+          debugPrint('❌ Erreur téléchargement média pour partage: $e');
+          if (context.mounted) {
+            Navigator.of(context).pop(); // Fermer le dialog si ouvert
+          }
+          // Continuer avec partage texte uniquement
+        }
+      }
+
+      // Partage texte uniquement (si pas de média ou erreur)
+      await Share.share(
+        shareText,
+        subject: '$emoji Publication de $userName - CENTER',
+      );
+
+      // Afficher confirmation
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Lien copié ! Partage-le sur tes réseaux',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF00FF88),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur partage lien: $e');
+      if (context.mounted) {
+        _showError(context, 'Erreur lors du partage');
+      }
+    }
   }
 }

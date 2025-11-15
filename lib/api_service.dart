@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as path;
@@ -547,6 +548,36 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Récupérer une publication par son ID (pour partage) - PUBLIQUE
+  static Future<Map<String, dynamic>> getPublicationById(String publicationId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/publications/shared/$publicationId'),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'publication': data['publication'] ?? data,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Publication introuvable',
+        };
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur getPublicationById: $e');
+      return {
+        'success': false,
+        'message': 'Erreur de connexion',
+      };
     }
   }
 
@@ -1963,6 +1994,59 @@ class ApiService {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // ✅ NOUVELLE MÉTHODE - Récupérer les publications géolocalisées
+  Future<Map<String, dynamic>> getGeolocatedPublications(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/publications/geolocated'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // ✅ NOUVELLE MÉTHODE - Mettre à jour la position GPS d'un employé
+  Future<Map<String, dynamic>> updateEmployeeLocation({
+    required String token,
+    required String employeeId,
+    required double latitude,
+    required double longitude,
+    String? address,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/api/employees/$employeeId/location'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'latitude': latitude,
+          'longitude': longitude,
+          'address': address,
+        }),
       );
 
       if (response.statusCode == 200) {

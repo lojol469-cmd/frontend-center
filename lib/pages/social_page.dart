@@ -6,6 +6,7 @@ import '../components/post_card.dart';
 import '../components/story_circle.dart';
 import '../components/image_background.dart';
 import '../utils/background_image_manager.dart';
+import '../utils/share_helper.dart';
 import 'create_publication_page.dart';
 import 'map_view_page.dart';
 import 'comments_page.dart';
@@ -568,16 +569,77 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     _loadPublications();
   }
 
-  void _sharePublication(String publicationId) {
+  void _sharePublication(String publicationId) async {
     if (!mounted) return;
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Partage en cours de développement'),
-        backgroundColor: Color(0xFF00D4FF),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    try {
+      // Trouver la publication dans la liste
+      final pub = _publications.firstWhere(
+        (p) => p['_id'] == publicationId,
+        orElse: () => <String, dynamic>{},
+      );
+      
+      if (pub.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Publication introuvable'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      
+      // Extraire les données
+      final userId = pub['userId'];
+      final userName = userId is Map ? (userId['name'] ?? 'Utilisateur') : 'Utilisateur';
+      final content = pub['content'] ?? '';
+      final media = pub['media'] as List?;
+      
+      String? mediaUrl;
+      String mediaType = 'image';
+      
+      if (media != null && media.isNotEmpty) {
+        final firstMedia = media[0];
+        if (firstMedia is String) {
+          mediaUrl = firstMedia;
+          if (mediaUrl.toLowerCase().endsWith('.mp4') || 
+              mediaUrl.toLowerCase().endsWith('.avi') ||
+              mediaUrl.toLowerCase().endsWith('.mov') ||
+              mediaUrl.toLowerCase().endsWith('.wmv') ||
+              mediaUrl.toLowerCase().endsWith('.flv') ||
+              mediaUrl.toLowerCase().endsWith('.webm') ||
+              mediaUrl.toLowerCase().endsWith('.mkv')) {
+            mediaType = 'video';
+          }
+        } else if (firstMedia is Map) {
+          mediaUrl = firstMedia['url'] ?? firstMedia['path'];
+          mediaType = firstMedia['type'] ?? 'image';
+        }
+      }
+      
+      // Utiliser ShareHelper pour partager avec le lien deep link
+      await ShareHelper.sharePublicationLink(
+        context: context,
+        publicationId: publicationId,
+        userName: userName,
+        content: content,
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
+      );
+      
+    } catch (e) {
+      debugPrint('❌ Erreur partage: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors du partage'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _navigateToAllStories() {
@@ -730,6 +792,12 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
               _buildAppBar(),
               _buildStoriesSection(),
               _buildPostsSection(),
+              // Padding en bas pour éviter que le contenu soit caché par la barre de navigation
+              SliverPadding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).padding.bottom + 80,
+                ),
+              ),
             ],
           ),
         ),
@@ -1239,11 +1307,40 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
               final firstMedia = media[0];
               if (firstMedia is String) {
                 imageUrl = firstMedia;
-                mediaType = 'image'; // Assumer image si string
+                // Déterminer le type en fonction de l'extension
+                if (imageUrl.toLowerCase().endsWith('.mp4') || 
+                    imageUrl.toLowerCase().endsWith('.avi') ||
+                    imageUrl.toLowerCase().endsWith('.mov') ||
+                    imageUrl.toLowerCase().endsWith('.wmv') ||
+                    imageUrl.toLowerCase().endsWith('.flv') ||
+                    imageUrl.toLowerCase().endsWith('.webm') ||
+                    imageUrl.toLowerCase().endsWith('.mkv')) {
+                  mediaType = 'video';
+                } else {
+                  mediaType = 'image';
+                }
               } else if (firstMedia is Map) {
                 imageUrl = firstMedia['url'] ?? firstMedia['path'];
                 mediaType = firstMedia['type'] ?? 'image'; // Récupérer le type
+                
+                // Vérification supplémentaire si type est vide/null
+                if (mediaType == null || mediaType.isEmpty) {
+                  if (imageUrl != null) {
+                    if (imageUrl.toLowerCase().endsWith('.mp4') || 
+                        imageUrl.toLowerCase().endsWith('.avi') ||
+                        imageUrl.toLowerCase().endsWith('.mov') ||
+                        imageUrl.toLowerCase().endsWith('.wmv') ||
+                        imageUrl.toLowerCase().endsWith('.flv') ||
+                        imageUrl.toLowerCase().endsWith('.webm') ||
+                        imageUrl.toLowerCase().endsWith('.mkv')) {
+                      mediaType = 'video';
+                    } else {
+                      mediaType = 'image';
+                    }
+                  }
+                }
               }
+              debugPrint('🎬 Media détecté: type=$mediaType, url=$imageUrl');
             }
             
             final createdAt = pub['createdAt'];
@@ -1253,6 +1350,27 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
             final appProvider = Provider.of<AppProvider>(context, listen: false);
             final currentUserId = appProvider.currentUser?['_id'] ?? '';
             final isOwner = publicationUserId == currentUserId;
+
+            // ✅ AJOUT - Récupérer la géolocalisation
+            final location = pub['location'] as Map<String, dynamic>?;
+            double? latitude;
+            double? longitude;
+            if (location != null) {
+              // Le backend peut utiliser deux formats différents:
+              // 1. {latitude: X, longitude: Y}
+              // 2. {coordinates: [lng, lat]}
+              if (location.containsKey('latitude') && location.containsKey('longitude')) {
+                latitude = (location['latitude'] as num?)?.toDouble();
+                longitude = (location['longitude'] as num?)?.toDouble();
+              } else if (location.containsKey('coordinates')) {
+                final coords = location['coordinates'] as List?;
+                if (coords != null && coords.length >= 2) {
+                  longitude = (coords[0] as num?)?.toDouble(); // GeoJSON: [lng, lat]
+                  latitude = (coords[1] as num?)?.toDouble();
+                }
+              }
+              debugPrint('📍 Géolocalisation trouvée: lat=$latitude, lng=$longitude');
+            }
 
             // Calculate time ago
             String timeAgo = 'maintenant';
@@ -1285,6 +1403,8 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                 imageUrl: imageUrl,
                 mediaType: mediaType, // Passer le type de média
                 userAvatar: userAvatar,
+                latitude: latitude, // ✅ AJOUT - Géolocalisation
+                longitude: longitude, // ✅ AJOUT - Géolocalisation
                 onLike: () => _likePublication(publicationId),
                 onComment: () => _showCommentsDialog(publicationId, content),
                 onShare: () => _sharePublication(publicationId),

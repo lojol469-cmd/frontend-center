@@ -221,6 +221,15 @@ const employeeSchema = new mongoose.Schema({
   endDate: { type: Date },
   certificateStartDate: { type: Date },
   certificateEndDate: { type: Date },
+  status: { type: String, enum: ['online', 'offline', 'away'], default: 'offline' },
+  lastSeen: { type: Date, default: Date.now },
+  // ✅ AJOUT - Champ location pour géolocalisation
+  location: {
+    latitude: { type: Number },
+    longitude: { type: Number },
+    address: { type: String, default: '' },
+    lastUpdate: { type: Date }
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -1001,6 +1010,54 @@ app.get('/api/publications', verifyToken, async (req, res) => {
   });
 });
 
+// ✅ ROUTE - Récupérer les publications géolocalisées (AVANT /:id pour éviter les conflits)
+app.get('/api/publications/geolocated', verifyToken, async (req, res) => {
+  try {
+    console.log('📍 Récupération des publications géolocalisées...');
+    
+    // ✅ CORRECTION - Chercher avec location.latitude et location.longitude (pas coordinates)
+    const publications = await Publication.find({
+      isActive: true,
+      'location.latitude': { $exists: true, $ne: null },
+      'location.longitude': { $exists: true, $ne: null }
+    })
+      .populate('userId', 'name email profileImage')
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    console.log(`✅ ${publications.length} publications géolocalisées trouvées`);
+
+    const publicationsData = publications.map(pub => ({
+      _id: pub._id,
+      userId: pub.userId?._id,
+      userName: pub.userId?.name || 'Utilisateur',
+      userImage: pub.userId?.profileImage || '',
+      text: pub.content || '', // ✅ CORRECTION - 'content' pas 'text'
+      media: pub.media || [],
+      location: pub.location || null,
+      latitude: pub.location?.latitude, // ✅ Accès direct
+      longitude: pub.location?.longitude, // ✅ Accès direct
+      address: pub.location?.address || pub.location?.placeName || 'Adresse non disponible',
+      likes: pub.likes?.length || 0,
+      comments: pub.comments?.length || 0,
+      createdAt: pub.createdAt
+    }));
+
+    res.json({
+      success: true,
+      total: publicationsData.length,
+      publications: publicationsData
+    });
+  } catch (err) {
+    console.error('❌ Erreur récupération publications géolocalisées:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des publications géolocalisées',
+      error: err.message
+    });
+  }
+});
+
 app.get('/api/publications/user/:userId', verifyToken, async (req, res) => {
   const publications = await Publication.find({ userId: req.params.userId, isActive: true })
     .populate('userId', 'name email profileImage')
@@ -1010,6 +1067,33 @@ app.get('/api/publications/user/:userId', verifyToken, async (req, res) => {
   const publicationsData = publications.map(pub => pub.toObject());
   
   res.json({ publications: publicationsData });
+});
+
+// Route publique pour partage - pas besoin d'authentification
+app.get('/api/publications/shared/:id', async (req, res) => {
+  try {
+    const pub = await Publication.findById(req.params.id)
+      .populate('userId', 'name email profileImage')
+      .populate('comments.userId', 'name email profileImage');
+    
+    if (!pub || !pub.isActive) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Publication introuvable' 
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      publication: pub 
+    });
+  } catch (error) {
+    console.error('❌ Erreur récupération publication partagée:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
 });
 
 app.get('/api/publications/:id', verifyToken, async (req, res) => {
@@ -2137,10 +2221,19 @@ app.get('/api/stats', verifyToken, async (req, res) => {
 
     // Statistiques de publications (accessibles à tous)
     const totalPublications = await Publication.countDocuments({ isActive: true });
+    
+    // Compter les publications avec géolocalisation
+    const publicationsWithLocation = await Publication.countDocuments({
+      isActive: true,
+      'location.latitude': { $exists: true, $ne: null },
+      'location.longitude': { $exists: true, $ne: null }
+    });
 
     const stats = {
       publications: {
-        total: totalPublications
+        total: totalPublications,
+        withLocation: publicationsWithLocation,
+        locationRate: totalPublications > 0 ? ((publicationsWithLocation / totalPublications) * 100).toFixed(1) : '0'
       }
     };
 
@@ -2597,6 +2690,14 @@ app.get('/api/statistics/overview', verifyToken, async (req, res) => {
       e.lastSeen && new Date(e.lastSeen) > last24h
     ).length;
 
+    // ✅ Ajouter les statistiques des publications avec géolocalisation
+    const totalPublications = await Publication.countDocuments({ isActive: true });
+    const publicationsWithLocation = await Publication.countDocuments({
+      isActive: true,
+      'location.latitude': { $exists: true, $ne: null },
+      'location.longitude': { $exists: true, $ne: null }
+    });
+
     res.json({
       success: true,
       statistics: {
@@ -2610,7 +2711,13 @@ app.get('/api/statistics/overview', verifyToken, async (req, res) => {
         withLocation: employeesWithLocation,
         recentlyActive,
         activeRate: totalEmployees > 0 ? ((onlineEmployees / totalEmployees) * 100).toFixed(1) : 0,
-        locationRate: totalEmployees > 0 ? ((employeesWithLocation / totalEmployees) * 100).toFixed(1) : 0
+        locationRate: totalEmployees > 0 ? ((employeesWithLocation / totalEmployees) * 100).toFixed(1) : 0,
+        // Statistiques des publications
+        publications: {
+          total: totalPublications,
+          withLocation: publicationsWithLocation,
+          locationRate: totalPublications > 0 ? ((publicationsWithLocation / totalPublications) * 100).toFixed(1) : '0'
+        }
       }
     });
   } catch (err) {
@@ -2741,6 +2848,72 @@ app.get('/api/statistics/departments-details', verifyToken, async (req, res) => 
     res.status(500).json({ 
       message: 'Erreur lors de la récupération des détails des départements',
       error: err.message 
+    });
+  }
+});
+
+// ✅ NOUVELLE ROUTE - Mettre à jour la position GPS d'un employé
+app.put('/api/employees/:id/location', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { latitude, longitude, address } = req.body;
+
+    console.log(`📍 Mise à jour position employé ${id}:`, { latitude, longitude, address });
+
+    // Validation des coordonnées
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        message: 'Latitude et longitude sont requis'
+      });
+    }
+
+    if (latitude < -90 || latitude > 90) {
+      return res.status(400).json({
+        message: 'Latitude invalide (doit être entre -90 et 90)'
+      });
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      return res.status(400).json({
+        message: 'Longitude invalide (doit être entre -180 et 180)'
+      });
+    }
+
+    const employee = await Employee.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          'location.latitude': parseFloat(latitude),
+          'location.longitude': parseFloat(longitude),
+          'location.address': address || 'Adresse non disponible',
+          'location.lastUpdate': new Date()
+        }
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!employee) {
+      return res.status(404).json({
+        message: 'Employé non trouvé'
+      });
+    }
+
+    console.log(`✅ Position mise à jour pour ${employee.firstName} ${employee.lastName}`);
+
+    res.json({
+      success: true,
+      message: 'Position mise à jour avec succès',
+      employee: {
+        id: employee._id,
+        name: `${employee.firstName} ${employee.lastName}`,
+        location: employee.location
+      }
+    });
+  } catch (err) {
+    console.error('❌ Erreur mise à jour position:', err);
+    res.status(500).json({
+      message: 'Erreur lors de la mise à jour de la position',
+      error: err.message
     });
   }
 });
