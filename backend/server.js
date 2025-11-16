@@ -248,7 +248,7 @@ const Employee = mongoose.model('Employee', employeeSchema);
 // Modèle Notification
 const notificationSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { type: String, enum: ['employee_created', 'employee_updated', 'employee_deleted', 'publication', 'message', 'system'], required: true },
+  type: { type: String, enum: ['employee_created', 'employee_updated', 'employee_deleted', 'publication', 'message', 'system', 'like', 'comment', 'follower'], required: true },
   title: { type: String, required: true },
   message: { type: String, required: true },
   data: { type: mongoose.Schema.Types.Mixed },
