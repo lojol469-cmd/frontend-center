@@ -21,7 +21,7 @@ exports.getPublications = async (req, res) => {
     console.log(`Page: ${page} Limit: ${limit}`);
 
     const publications = await Publication.find()
-      .populate('userId', 'firstName lastName email faceImage avatar')
+      .populate('userId', 'name email profileImage')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);

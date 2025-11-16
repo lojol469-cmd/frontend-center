@@ -30,6 +30,11 @@ class _ProfilePageState extends State<ProfilePage> {
   // Statistiques de stockage
   Map<String, dynamic>? _storageInfo;
   bool _isLoadingStorage = false;
+  
+  // Gestion des publications pour libérer l'espace
+  List<Map<String, dynamic>> _myPublications = [];
+  bool _isLoadingPublications = false;
+  final Set<String> _selectedPublicationsToDelete = {};
 
   @override
   void initState() {
@@ -37,6 +42,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _selectedImage = _imageManager.getImageForPage('profile'); // Image élégante
     _loadUserStats();
     _loadStorageInfo();
+    _loadMyPublications();
   }
   Future<void> _loadUserStats() async {
     // Éviter les appels simultanés - VÉRIFIER EN PREMIER
@@ -124,6 +130,104 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         setState(() => _isLoadingStorage = false);
       }
+    }
+  }
+
+  /// Charger les publications de l'utilisateur pour gestion du stockage
+  Future<void> _loadMyPublications() async {
+    if (_isLoadingPublications) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+    final userId = appProvider.currentUser?['_id'];
+
+    if (token == null || userId == null) {
+      debugPrint('⚠️ Token ou userId manquant');
+      return;
+    }
+
+    setState(() => _isLoadingPublications = true);
+
+    try {
+      // Récupérer toutes les publications de l'utilisateur
+      final result = await ApiService.getUserPublications(token, userId);
+      debugPrint('📄 Publications reçues: ${result['publications']?.length ?? 0}');
+
+      if (mounted && result['success'] == true) {
+        final pubs = result['publications'] as List? ?? [];
+        setState(() {
+          _myPublications = pubs.map((p) => p as Map<String, dynamic>).toList();
+          _isLoadingPublications = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur chargement publications: $e');
+      if (mounted) {
+        setState(() => _isLoadingPublications = false);
+      }
+    }
+  }
+
+  /// Supprimer les publications sélectionnées
+  Future<void> _deleteSelectedPublications() async {
+    if (_selectedPublicationsToDelete.isEmpty) {
+      _showMessage('Aucune publication sélectionnée');
+      return;
+    }
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) {
+      _showMessage('Non authentifié');
+      return;
+    }
+
+    // Confirmation
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirmer la suppression'),
+        content: Text(
+          'Voulez-vous vraiment supprimer ${_selectedPublicationsToDelete.length} publication(s) ?\n\nCette action libérera de l\'espace de stockage.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Supprimer chaque publication
+    int deletedCount = 0;
+    for (final pubId in _selectedPublicationsToDelete) {
+      try {
+        await ApiService.deletePublication(token, pubId);
+        deletedCount++;
+      } catch (e) {
+        debugPrint('❌ Erreur suppression $pubId: $e');
+      }
+    }
+
+    // Actualiser les données
+    _selectedPublicationsToDelete.clear();
+    await _loadMyPublications();
+    await _loadStorageInfo();
+    await _loadUserStats();
+
+    if (mounted) {
+      _showMessage('$deletedCount publication(s) supprimée(s) ✓');
     }
   }
 
@@ -452,6 +556,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildQuickStats(context, appProvider),
                     const SizedBox(height: 16), // Réduit de 24 à 16
                     _buildStorageSection(), // Section de stockage
+                    const SizedBox(height: 16),
+                    _buildPublicationsManagementSection(), // Section de gestion des publications
                     const SizedBox(height: 16), // Réduit de 24 à 16
                     const ThemeSelector(), // Sélecteur de thème
                     const SizedBox(height: 16), // Réduit de 24 à 16
@@ -1118,6 +1224,368 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
+  }
+
+  /// Section de gestion des publications pour libérer l'espace
+  Widget _buildPublicationsManagementSection() {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        return FuturisticCard(
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // En-tête
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF6B35), Color(0xFFFF8C5A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.delete_sweep,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Gérer mes publications',
+                            style: TextStyle(
+                              color: themeProvider.textColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Libérez de l\'espace en supprimant vos anciens médias',
+                            style: TextStyle(
+                              color: themeProvider.textSecondaryColor,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_selectedPublicationsToDelete.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF6B35),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${_selectedPublicationsToDelete.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                
+                // Liste scrollable des publications
+                if (_isLoadingPublications)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF00D4FF),
+                      ),
+                    ),
+                  )
+                else if (_myPublications.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 48,
+                            color: themeProvider.textSecondaryColor.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Aucune publication',
+                            style: TextStyle(
+                              color: themeProvider.textSecondaryColor,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 350),
+                    decoration: BoxDecoration(
+                      color: themeProvider.isDarkMode 
+                          ? Colors.black.withValues(alpha: 0.2)
+                          : Colors.grey.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: themeProvider.isDarkMode
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.05),
+                      ),
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _myPublications.length,
+                      itemBuilder: (context, index) {
+                        final pub = _myPublications[index];
+                        final pubId = pub['_id'] ?? '';
+                        final content = pub['content'] ?? '';
+                        final media = pub['media'] as List? ?? [];
+                        final hasMedia = media.isNotEmpty;
+                        final mediaCount = media.length;
+                        final createdAt = pub['createdAt'] != null
+                            ? DateTime.parse(pub['createdAt'])
+                            : DateTime.now();
+                        final timeAgo = _formatTimeAgo(createdAt);
+                        final isSelected = _selectedPublicationsToDelete.contains(pubId);
+                        
+                        // Calculer la taille approximative
+                        String sizeInfo = '';
+                        if (hasMedia) {
+                          final firstMedia = media[0] as Map<String, dynamic>;
+                          final type = firstMedia['type'] ?? '';
+                          if (type == 'video') {
+                            sizeInfo = '~${(mediaCount * 5).toStringAsFixed(0)} MB'; // Estimation
+                          } else if (type == 'image') {
+                            sizeInfo = '~${(mediaCount * 0.5).toStringAsFixed(1)} MB';
+                          }
+                        }
+                        
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                if (isSelected) {
+                                  _selectedPublicationsToDelete.remove(pubId);
+                                } else {
+                                  _selectedPublicationsToDelete.add(pubId);
+                                }
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: themeProvider.isDarkMode
+                                        ? Colors.white.withValues(alpha: 0.05)
+                                        : Colors.black.withValues(alpha: 0.05),
+                                  ),
+                                ),
+                                color: isSelected
+                                    ? const Color(0xFFFF6B35).withValues(alpha: 0.1)
+                                    : Colors.transparent,
+                              ),
+                              child: Row(
+                                children: [
+                                  // Checkbox
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? const Color(0xFFFF6B35)
+                                            : themeProvider.textSecondaryColor.withValues(alpha: 0.3),
+                                        width: 2,
+                                      ),
+                                      color: isSelected
+                                          ? const Color(0xFFFF6B35)
+                                          : Colors.transparent,
+                                    ),
+                                    child: isSelected
+                                        ? const Icon(
+                                            Icons.check,
+                                            size: 16,
+                                            color: Colors.white,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  // Contenu
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          content.isEmpty ? '(Sans texte)' : content,
+                                          style: TextStyle(
+                                            color: themeProvider.textColor,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.access_time,
+                                              size: 12,
+                                              color: themeProvider.textSecondaryColor,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              timeAgo,
+                                              style: TextStyle(
+                                                color: themeProvider.textSecondaryColor,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            if (hasMedia) ...[
+                                              const SizedBox(width: 12),
+                                              Icon(
+                                                Icons.collections,
+                                                size: 12,
+                                                color: themeProvider.textSecondaryColor,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '$mediaCount média(s)',
+                                                style: TextStyle(
+                                                  color: themeProvider.textSecondaryColor,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              if (sizeInfo.isNotEmpty) ...[
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  sizeInfo,
+                                                  style: TextStyle(
+                                                    color: const Color(0xFFFF6B35),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                
+                // Boutons d'action
+                if (_myPublications.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      // Bouton tout sélectionner
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              if (_selectedPublicationsToDelete.length == _myPublications.length) {
+                                _selectedPublicationsToDelete.clear();
+                              } else {
+                                _selectedPublicationsToDelete.clear();
+                                for (final pub in _myPublications) {
+                                  _selectedPublicationsToDelete.add(pub['_id'] ?? '');
+                                }
+                              }
+                            });
+                          },
+                          icon: Icon(
+                            _selectedPublicationsToDelete.length == _myPublications.length
+                                ? Icons.deselect
+                                : Icons.select_all,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _selectedPublicationsToDelete.length == _myPublications.length
+                                ? 'Tout désélectionner'
+                                : 'Tout sélectionner',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: themeProvider.primaryColor,
+                            side: BorderSide(color: themeProvider.primaryColor),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Bouton supprimer
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _selectedPublicationsToDelete.isEmpty
+                              ? null
+                              : _deleteSelectedPublications,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: Text(
+                            _selectedPublicationsToDelete.isEmpty
+                                ? 'Supprimer'
+                                : 'Supprimer (${_selectedPublicationsToDelete.length})',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFF6B35),
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey.withValues(alpha: 0.3),
+                            disabledForegroundColor: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inSeconds < 60) {
+      return 'À l\'instant';
+    } else if (difference.inMinutes < 60) {
+      return 'Il y a ${difference.inMinutes}min';
+    } else if (difference.inHours < 24) {
+      return 'Il y a ${difference.inHours}h';
+    } else if (difference.inDays < 7) {
+      return 'Il y a ${difference.inDays}j';
+    } else if (difference.inDays < 30) {
+      return 'Il y a ${(difference.inDays / 7).floor()}sem';
+    } else {
+      return 'Il y a ${(difference.inDays / 30).floor()}mois';
+    }
   }
 
   Widget _buildLogoutButton(BuildContext context, AppProvider appProvider) {
