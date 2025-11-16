@@ -660,57 +660,61 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildSettings(BuildContext context, AppProvider appProvider) {
-    return FuturisticCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(
-              'Paramètres',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return FuturisticCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  'Paramètres',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: themeProvider.textColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ),
+              _buildSettingItem(
+                context,
+                icon: Icons.edit_rounded,
+                title: 'Modifier le nom',
+                subtitle: 'Changer votre nom d\'affichage',
+                onTap: () => _showEditNameDialog(context, appProvider),
+              ),
+              _buildSettingItem(
+                context,
+                icon: Icons.lock_rounded,
+                title: 'Changer le mot de passe',
+                subtitle: 'Modifier votre mot de passe',
+                onTap: () => _showChangePasswordDialog(context, appProvider),
+              ),
+              _buildSettingItem(
+                context,
+                icon: Icons.notifications_rounded,
+                title: 'Notifications',
+                subtitle: 'Gérer les notifications push',
+                onTap: () => _showNotificationsSettings(context, appProvider),
+              ),
+              _buildSettingItem(
+                context,
+                icon: Icons.palette_rounded,
+                title: 'Thème',
+                subtitle: 'Personnaliser l\'apparence',
+                onTap: () => _showThemeSettings(context, appProvider),
+              ),
+              _buildSettingItem(
+                context,
+                icon: Icons.help_rounded,
+                title: 'Aide & Support',
+                subtitle: 'Obtenir de l\'aide',
+                onTap: () => _showHelpDialog(context),
+              ),
+            ],
           ),
-          _buildSettingItem(
-            context,
-            icon: Icons.edit_rounded,
-            title: 'Modifier le nom',
-            subtitle: 'Changer votre nom d\'affichage',
-            onTap: () => _showEditNameDialog(context, appProvider),
-          ),
-          _buildSettingItem(
-            context,
-            icon: Icons.lock_rounded,
-            title: 'Changer le mot de passe',
-            subtitle: 'Modifier votre mot de passe',
-            onTap: () => _showChangePasswordDialog(context, appProvider),
-          ),
-          _buildSettingItem(
-            context,
-            icon: Icons.notifications_rounded,
-            title: 'Notifications',
-            subtitle: 'Gérer les notifications push',
-            onTap: () => _showNotificationsSettings(context, appProvider),
-          ),
-          _buildSettingItem(
-            context,
-            icon: Icons.palette_rounded,
-            title: 'Thème',
-            subtitle: 'Personnaliser l\'apparence',
-            onTap: () => _showThemeSettings(context, appProvider),
-          ),
-          _buildSettingItem(
-            context,
-            icon: Icons.help_rounded,
-            title: 'Aide & Support',
-            subtitle: 'Obtenir de l\'aide',
-            onTap: () => _showHelpDialog(context),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -721,6 +725,8 @@ class _ProfilePageState extends State<ProfilePage> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -731,12 +737,12 @@ class _ProfilePageState extends State<ProfilePage> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF00D4FF).withValues(alpha: 0.1),
+                color: themeProvider.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 icon,
-                color: const Color(0xFF00D4FF),
+                color: themeProvider.primaryColor,
                 size: 20,
               ),
             ),
@@ -747,8 +753,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.black,
+                    style: TextStyle(
+                      color: themeProvider.textColor,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -756,17 +762,17 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Colors.black54,
+                    style: TextStyle(
+                      color: themeProvider.textSecondaryColor,
                       fontSize: 14,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.arrow_forward_ios_rounded,
-              color: Colors.black38,
+              color: themeProvider.textSecondaryColor.withValues(alpha: 0.5),
               size: 16,
             ),
           ],
@@ -791,24 +797,26 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showLogoutDialog(BuildContext context, AppProvider appProvider) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text(
+        backgroundColor: themeProvider.surfaceColor,
+        title: Text(
           'Se Déconnecter',
-          style: TextStyle(color: Colors.black87),
+          style: TextStyle(color: themeProvider.textColor),
         ),
-        content: const Text(
+        content: Text(
           'Êtes-vous sûr de vouloir vous déconnecter ?',
-          style: TextStyle(color: Colors.black54),
+          style: TextStyle(color: themeProvider.textSecondaryColor),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Annuler',
-              style: TextStyle(color: Colors.black54),
+              style: TextStyle(color: themeProvider.textSecondaryColor),
             ),
           ),
           TextButton(
@@ -816,9 +824,9 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.pop(context);
               appProvider.logout();
             },
-            child: const Text(
+            child: Text(
               'Se Déconnecter',
-              style: TextStyle(color: Color(0xFFFF6B35)),
+              style: TextStyle(color: themeProvider.secondaryColor),
             ),
           ),
         ],

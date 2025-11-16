@@ -88,6 +88,9 @@ dependencies:
   # File Picker (audio, documents)
   file_picker: ^8.1.4
   
+  # Audio Recording (temporairement désactivé pour compatibilité)
+  # record: ^5.0.0
+  
   # Géolocalisation
   geolocator: ^13.0.2
   permission_handler: ^11.3.1

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../api_service.dart';
+import '../theme/theme_provider.dart';
 import '../components/futuristic_card.dart';
 import '../components/stats_card.dart';
 import '../components/quick_action_card.dart';
@@ -103,6 +104,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Scaffold(
       body: ImageBackground(
         imagePath: _selectedImage,
@@ -110,7 +113,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         withGradient: false,
         child: RefreshIndicator(
           onRefresh: _loadStats,
-          color: const Color(0xFF00FF88),
+          color: themeProvider.primaryColor,
           child: SafeArea(
             bottom: false,
             child: CustomScrollView(
@@ -140,190 +143,192 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Widget _buildAppBar() {
-    return SliverAppBar(
-      expandedHeight: 120,
-      floating: true,
-      pinned: true,
-      backgroundColor: Colors.transparent,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.white,
-                Colors.white.withValues(alpha: 0.9),
-              ],
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Row(
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return SliverAppBar(
+          expandedHeight: 120,
+          floating: true,
+          pinned: true,
+          backgroundColor: Colors.transparent,
+          flexibleSpace: FlexibleSpaceBar(
+            background: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    themeProvider.surfaceColor,
+                    themeProvider.surfaceColor.withValues(alpha: 0.9),
+                  ],
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // Logo SETRAF dans un cercle avec badge de notification
-                  Stack(
-                    clipBehavior: Clip.none,
+                  Row(
                     children: [
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
+                      // Logo SETRAF dans un cercle avec badge de notification
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: themeProvider.gradient,
+                            ),
+                            padding: const EdgeInsets.all(8),
+                            child: ClipOval(
+                              child: Image.asset(
+                                'assets/images/app_logo.png',
+                                fit: BoxFit.contain,
+                              ),
+                            ),
                           ),
-                        ),
-                        padding: const EdgeInsets.all(8),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/images/app_logo.png',
-                            fit: BoxFit.contain,
-                          ),
+                          // Badge de notification style TikTok/Facebook
+                          if (_notificationsCount > 0)
+                            Positioned(
+                              right: -4,
+                              top: -4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [themeProvider.secondaryColor, themeProvider.accentColor],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: themeProvider.surfaceColor,
+                                    width: 2.5,
+                                  ),
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 22,
+                                  minHeight: 22,
+                                ),
+                                child: Text(
+                                  _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
+                                  style: TextStyle(
+                                    color: themeProvider.isDarkMode ? Colors.white : Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.2,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Tableau de bord',
+                              style: TextStyle(
+                                color: themeProvider.textColor,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              'Vue d\'ensemble de votre activité',
+                              style: TextStyle(
+                                color: themeProvider.textSecondaryColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      // Badge de notification style TikTok/Facebook
-                      if (_notificationsCount > 0)
-                        Positioned(
-                          right: -4,
-                          top: -4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFFF0050), Color(0xFFFF3366)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                      // Bouton notifications avec badge
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          IconButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const NotificationsListPage(),
+                                ),
+                              ).then((_) {
+                                // Recharger les stats après retour de la page notifications
+                                _loadStats();
+                              });
+                            },
+                            icon: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: themeProvider.primaryColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: themeProvider.primaryColor,
+                                  width: 1,
+                                ),
                               ),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 2.5,
+                              child: Icon(
+                                Icons.notifications_rounded,
+                                color: themeProvider.primaryColor,
+                                size: 20,
                               ),
                             ),
-                            constraints: const BoxConstraints(
-                              minWidth: 22,
-                              minHeight: 22,
-                            ),
-                            child: Text(
-                              _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                                height: 1.2,
+                          ),
+                          // Badge avec le nombre de notifications (style moderne)
+                          if (_notificationsCount > 0)
+                            Positioned(
+                              right: 6,
+                              top: 6,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [themeProvider.secondaryColor, themeProvider.accentColor],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: themeProvider.surfaceColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 20,
+                                  minHeight: 20,
+                                ),
+                                child: Text(
+                                  _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
+                                  style: TextStyle(
+                                    color: themeProvider.isDarkMode ? Colors.white : Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.2,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
-                              textAlign: TextAlign.center,
                             ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Tableau de bord',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          'Vue d\'ensemble de votre activité',
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Bouton notifications avec badge
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const NotificationsListPage(),
-                            ),
-                          ).then((_) {
-                            // Recharger les stats après retour de la page notifications
-                            _loadStats();
-                          });
-                        },
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00FF88).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(0xFF00FF88),
-                              width: 1,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.notifications_rounded,
-                            color: Color(0xFF00FF88),
-                            size: 20,
-                          ),
-                        ),
+                        ],
                       ),
-                      // Badge avec le nombre de notifications (style moderne)
-                      if (_notificationsCount > 0)
-                        Positioned(
-                          right: 6,
-                          top: 6,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFFF0050), Color(0xFFFF3366)],
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 2,
-                              ),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 20,
-                              minHeight: 20,
-                            ),
-                            child: Text(
-                              _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                height: 1.2,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -422,80 +427,84 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Widget _buildStatsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Statistiques en temps réel',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            if (_isLoadingStats)
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF88)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Statistiques en temps réel',
+                  style: TextStyle(
+                    color: themeProvider.textColor,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
+                if (_isLoadingStats)
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(themeProvider.primaryColor),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: StatsCard(
+                    title: 'Employés',
+                    value: _employeesCount.toString(),
+                    icon: Icons.groups_rounded,
+                    color: themeProvider.primaryColor,
+                    trend: '+12%',
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: StatsCard(
+                    title: 'Publications',
+                    value: _publicationsCount.toString(),
+                    icon: Icons.article_rounded,
+                    color: themeProvider.secondaryColor,
+                    trend: '+8%',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: StatsCard(
+                    title: 'Marqueurs',
+                    value: _markersCount.toString(),
+                    icon: Icons.location_on_rounded,
+                    color: themeProvider.accentColor,
+                    trend: '+3%',
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: StatsCard(
+                    title: 'Notifications',
+                    value: _notificationsCount.toString(),
+                    icon: Icons.notifications_rounded,
+                    color: themeProvider.primaryColor,
+                    trend: _notificationsCount > 0 ? 'Nouvelles!' : '',
+                  ),
+                ),
+              ],
+            ),
           ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: StatsCard(
-                title: 'Employés',
-                value: _employeesCount.toString(),
-                icon: Icons.groups_rounded,
-                color: const Color(0xFF00FF88),
-                trend: '+12%',
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: StatsCard(
-                title: 'Publications',
-                value: _publicationsCount.toString(),
-                icon: Icons.article_rounded,
-                color: const Color(0xFF00CC66),
-                trend: '+8%',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: StatsCard(
-                title: 'Marqueurs',
-                value: _markersCount.toString(),
-                icon: Icons.location_on_rounded,
-                color: const Color(0xFF009944),
-                trend: '+3%',
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: StatsCard(
-                title: 'Notifications',
-                value: _notificationsCount.toString(),
-                icon: Icons.notifications_rounded,
-                color: const Color(0xFF00FF88),
-                trend: _notificationsCount > 0 ? 'Nouvelles!' : '',
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 

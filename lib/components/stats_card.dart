@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../theme/theme_provider.dart';
 import 'futuristic_card.dart';
 
 class StatsCard extends StatelessWidget {
@@ -19,17 +21,21 @@ class StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final theme = themeProvider.currentTheme;
+    
     return FuturisticCard(
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -41,12 +47,12 @@ class StatsCard extends StatelessWidget {
                   child: Icon(
                     icon,
                     color: color,
-                    size: 24,
+                    size: 22,
                   ),
                 ),
                 if (trend != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: trend!.startsWith('+') 
                         ? Colors.green.withValues(alpha: 0.1)
@@ -57,30 +63,32 @@ class StatsCard extends StatelessWidget {
                       trend!,
                       style: TextStyle(
                         color: trend!.startsWith('+') ? Colors.green : Colors.red,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               value,
               style: TextStyle(
-                color: Colors.black,
-                fontSize: 28,
+                color: theme.text,
+                fontSize: 26,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               title,
               style: TextStyle(
-                color: Colors.black87,
-                fontSize: 14,
+                color: theme.textSecondary,
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

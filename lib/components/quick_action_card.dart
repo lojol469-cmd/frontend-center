@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../theme/theme_provider.dart';
 import 'futuristic_card.dart';
 
 class QuickActionCard extends StatelessWidget {
@@ -17,6 +19,9 @@ class QuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final theme = themeProvider.currentTheme;
+    
     return GestureDetector(
       onTap: onTap,
       child: FuturisticCard(
@@ -47,7 +52,7 @@ class QuickActionCard extends StatelessWidget {
                 ),
                 child: Icon(
                   icon,
-                  color: Colors.black,
+                  color: theme.isDark ? Colors.white : Colors.black,
                   size: 24,
                 ),
               ),
@@ -58,8 +63,8 @@ class QuickActionCard extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.black,
+                  style: TextStyle(
+                    color: theme.text,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     height: 1.1,

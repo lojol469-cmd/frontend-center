@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
+import '../theme/theme_provider.dart';
 import 'home_page.dart';
 import 'social_page.dart';
 import 'employees_page.dart';
@@ -61,25 +62,23 @@ class MainPage extends StatelessWidget {
     // N'afficher le FAB que pour les admins
     if (!isAdmin) return const SizedBox.shrink();
     
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 8),
       child: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [Color(0xFF25D366), Color(0xFF128C7E)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          gradient: themeProvider.gradient,
         ),
         child: FloatingActionButton(
           heroTag: 'admin_add',
           onPressed: () => _showCreateDialog(context),
           backgroundColor: Colors.transparent,
           elevation: 0,
-          child: const Icon(
+          child: Icon(
             Icons.add,
-            color: Colors.black,
+            color: themeProvider.isDarkMode ? Colors.white : Colors.black,
             size: 32,
           ),
         ),
@@ -88,12 +87,14 @@ class MainPage extends StatelessWidget {
   }
 
   Widget _buildBottomNavigationBar(BuildContext context, AppProvider appProvider, bool isAdmin) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: themeProvider.surfaceColor,
         border: Border(
           top: BorderSide(
-            color: Colors.grey.withValues(alpha: 0.2),
+            color: themeProvider.primaryColor.withValues(alpha: 0.2),
             width: 1,
           ),
         ),
@@ -102,8 +103,8 @@ class MainPage extends StatelessWidget {
         child: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.transparent,
-          selectedItemColor: const Color(0xFF25D366),
-          unselectedItemColor: Colors.black54,
+          selectedItemColor: themeProvider.primaryColor,
+          unselectedItemColor: themeProvider.textSecondaryColor,
           currentIndex: appProvider.currentIndex,
           onTap: (index) {
             // Pour les non-admins, tous les index de la barre sont accessibles
@@ -159,6 +160,7 @@ class MainPage extends StatelessWidget {
 
   void _showCreateDialog(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     
     showModalBottomSheet(
       context: context,
@@ -170,9 +172,9 @@ class MainPage extends StatelessWidget {
           top: 24,
           bottom: 24 + bottomPadding, // Ajouter le padding du système
         ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: themeProvider.surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -181,7 +183,7 @@ class MainPage extends StatelessWidget {
               width: 50,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.3),
+                color: themeProvider.textSecondaryColor.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -189,7 +191,7 @@ class MainPage extends StatelessWidget {
             Text(
               'Créer',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.black87,
+                color: themeProvider.textColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -201,7 +203,7 @@ class MainPage extends StatelessWidget {
                   context,
                   icon: Icons.edit_rounded,
                   label: 'Publication',
-                  color: const Color(0xFF25D366),
+                  color: themeProvider.primaryColor,
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
@@ -222,7 +224,7 @@ class MainPage extends StatelessWidget {
                   context,
                   icon: Icons.person_add_rounded,
                   label: 'Employé',
-                  color: const Color(0xFF128C7E),
+                  color: themeProvider.secondaryColor,
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
@@ -243,7 +245,7 @@ class MainPage extends StatelessWidget {
                   context,
                   icon: Icons.location_on_rounded,
                   label: 'Marqueur',
-                  color: const Color(0xFF075E54),
+                  color: themeProvider.accentColor,
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
@@ -274,7 +276,7 @@ class MainPage extends StatelessWidget {
                   context,
                   icon: Icons.chat_rounded,
                   label: 'Chat IA',
-                  color: const Color(0xFF10A37F),
+                  color: themeProvider.primaryColor,
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
@@ -301,6 +303,8 @@ class MainPage extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -323,7 +327,7 @@ class MainPage extends StatelessWidget {
               ),
               child: Icon(
                 icon,
-                color: Colors.black,
+                color: themeProvider.isDarkMode ? Colors.white : Colors.black,
                 size: 24,
               ),
             ),

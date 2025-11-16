@@ -2240,4 +2240,214 @@ class ApiService {
       throw Exception('Erreur de connexion: $e');
     }
   }
+
+  // ============ CHAT DE GROUPE ============
+  
+  // Récupérer les messages d'un groupe
+  Future<Map<String, dynamic>> getGroupMessages(String token, String groupId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/chat/groups/$groupId/messages'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Récupérer les utilisateurs en ligne dans un groupe
+  Future<Map<String, dynamic>> getGroupOnlineUsers(String token, String groupId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/chat/groups/$groupId/online'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Envoyer un message texte dans un groupe
+  Future<Map<String, dynamic>> sendGroupMessage(
+    String token,
+    String groupId,
+    String content, {
+    String? replyTo,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/chat/groups/$groupId/messages'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'content': content,
+          if (replyTo != null) 'replyTo': replyTo,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Envoyer un message avec médias dans un groupe
+  Future<Map<String, dynamic>> sendGroupMessageWithMedia(
+    String token,
+    String groupId, {
+    String? content,
+    required List<File> mediaFiles,
+    String? replyTo,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/api/chat/groups/$groupId/messages'),
+      );
+
+      request.headers['Authorization'] = 'Bearer $token';
+
+      if (content != null && content.isNotEmpty) {
+        request.fields['content'] = content;
+      }
+
+      if (replyTo != null) {
+        request.fields['replyTo'] = replyTo;
+      }
+
+      for (var file in mediaFiles) {
+        final ext = file.path.split('.').last.toLowerCase();
+        String fieldName;
+        
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
+          fieldName = 'images';
+        } else if (['mp4', 'mov', 'avi', 'mkv'].contains(ext)) {
+          fieldName = 'videos';
+        } else if (['mp3', 'wav', 'm4a', 'ogg'].contains(ext)) {
+          fieldName = 'audio';
+        } else {
+          fieldName = 'documents';
+        }
+
+        request.files.add(await http.MultipartFile.fromPath(
+          fieldName,
+          file.path,
+        ));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 201) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Modifier un message
+  Future<Map<String, dynamic>> updateGroupMessage(
+    String token,
+    String groupId,
+    String messageId,
+    String content,
+  ) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/api/chat/groups/$groupId/messages/$messageId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'content': content}),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Supprimer un message
+  Future<Map<String, dynamic>> deleteGroupMessage(
+    String token,
+    String groupId,
+    String messageId,
+  ) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/chat/groups/$groupId/messages/$messageId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Réagir à un message
+  Future<Map<String, dynamic>> reactToGroupMessage(
+    String token,
+    String groupId,
+    String messageId,
+    String emoji,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/chat/groups/$groupId/messages/$messageId/react'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'emoji': emoji}),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
 }
