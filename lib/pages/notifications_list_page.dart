@@ -361,6 +361,55 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
+                                        
+                                        // Aperçu de la publication si c'est un commentaire
+                                        if (type == 'comment' && notification['data'] != null) ...[
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF00FF88).withValues(alpha: 0.08),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: const Color(0xFF00FF88).withValues(alpha: 0.2),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                // Image de la publication si disponible
+                                                if (notification['data']['publicationImage'] != null)
+                                                  Container(
+                                                    width: 50,
+                                                    height: 50,
+                                                    margin: const EdgeInsets.only(right: 12),
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      image: DecorationImage(
+                                                        image: NetworkImage(notification['data']['publicationImage']),
+                                                        fit: BoxFit.cover,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                // Aperçu du texte de la publication
+                                                if (notification['data']['publicationPreview'] != null && notification['data']['publicationPreview'].toString().isNotEmpty)
+                                                  Expanded(
+                                                    child: Text(
+                                                      notification['data']['publicationPreview'],
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        color: Colors.grey[600],
+                                                        fontStyle: FontStyle.italic,
+                                                      ),
+                                                      maxLines: 2,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                        
                                         const SizedBox(height: 8),
                                         Text(
                                           _formatDate(createdAt),

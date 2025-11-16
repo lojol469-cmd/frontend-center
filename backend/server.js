@@ -257,6 +257,22 @@ const notificationSchema = new mongoose.Schema({
 });
 const Notification = mongoose.model('Notification', notificationSchema);
 
+// Modèle Message (Chat entre utilisateurs)
+const messageSchema = new mongoose.Schema({
+  senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  receiverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  content: { type: String, required: true },
+  media: [{
+    type: { type: String, enum: ['image', 'video', 'audio', 'file'], required: true },
+    url: { type: String, required: true },
+    filename: { type: String, required: true }
+  }],
+  isRead: { type: Boolean, default: false },
+  readAt: { type: Date },
+  createdAt: { type: Date, default: Date.now }
+});
+const Message = mongoose.model('Message', messageSchema);
+
 // Modèle Publication
 const publicationSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -1000,6 +1016,266 @@ app.put('/api/notifications/:id/read', verifyToken, async (req, res) => {
 });
 
 // ========================================
+// ROUTES MESSAGERIE
+// ========================================
+
+// Envoyer un message
+app.post('/api/messages/send', verifyToken, async (req, res) => {
+  try {
+    const { receiverId, content } = req.body;
+
+    if (!receiverId || !content?.trim()) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Destinataire et contenu requis' 
+      });
+    }
+
+    // Vérifier que le destinataire existe
+    const receiver = await User.findById(receiverId);
+    if (!receiver) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Destinataire non trouvé' 
+      });
+    }
+
+    // Créer le message
+    const message = new Message({
+      senderId: req.user.userId,
+      receiverId,
+      content: content.trim(),
+      isRead: false
+    });
+
+    await message.save();
+    await message.populate('senderId', 'name profileImage');
+    await message.populate('receiverId', 'name profileImage');
+
+    // Envoyer une notification push au destinataire
+    const sender = await User.findById(req.user.userId).select('name');
+    await sendPushNotification(receiverId, {
+      title: `💬 Message de ${sender.name}`,
+      body: content.trim().substring(0, 100),
+      data: {
+        type: 'message',
+        senderId: req.user.userId,
+        messageId: message._id.toString()
+      }
+    });
+
+    // Envoyer un email au destinataire
+    if (receiver.email) {
+      await sendEmailNotification(
+        receiver.email,
+        `💬 Nouveau message de ${sender.name}`,
+        `<p>Vous avez reçu un nouveau message de <strong>${sender.name}</strong>:</p>
+         <blockquote style="border-left: 3px solid #00FF88; padding-left: 15px; margin: 15px 0;">
+           ${content.trim().substring(0, 200)}${content.length > 200 ? '...' : ''}
+         </blockquote>
+         <p>Connectez-vous à l'application pour répondre.</p>`
+      );
+    }
+
+    console.log(`📨 Message envoyé de ${req.user.userId} à ${receiverId}`);
+
+    res.json({ 
+      success: true,
+      message: message.toObject()
+    });
+  } catch (error) {
+    console.error('❌ Erreur envoi message:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+// Récupérer les conversations (liste des personnes avec qui on a échangé)
+app.get('/api/messages/conversations', verifyToken, async (req, res) => {
+  try {
+    // Récupérer tous les messages envoyés ou reçus par l'utilisateur
+    const messages = await Message.find({
+      $or: [
+        { senderId: req.user.userId },
+        { receiverId: req.user.userId }
+      ]
+    })
+    .populate('senderId', 'name profileImage')
+    .populate('receiverId', 'name profileImage')
+    .sort({ createdAt: -1 });
+
+    // Grouper par conversation (utilisateur unique)
+    const conversationsMap = new Map();
+
+    for (const msg of messages) {
+      const otherUserId = msg.senderId._id.toString() === req.user.userId 
+        ? msg.receiverId._id.toString() 
+        : msg.senderId._id.toString();
+
+      if (!conversationsMap.has(otherUserId)) {
+        const otherUser = msg.senderId._id.toString() === req.user.userId 
+          ? msg.receiverId 
+          : msg.senderId;
+
+        // Compter les messages non lus de cet utilisateur
+        const unreadCount = await Message.countDocuments({
+          senderId: otherUserId,
+          receiverId: req.user.userId,
+          isRead: false
+        });
+
+        conversationsMap.set(otherUserId, {
+          userId: otherUserId,
+          userName: otherUser.name,
+          userImage: otherUser.profileImage,
+          lastMessage: msg.content,
+          lastMessageTime: msg.createdAt,
+          unreadCount
+        });
+      }
+    }
+
+    const conversations = Array.from(conversationsMap.values());
+    conversations.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+
+    res.json({ 
+      success: true,
+      conversations 
+    });
+  } catch (error) {
+    console.error('❌ Erreur récupération conversations:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+// Récupérer les messages d'une conversation
+app.get('/api/messages/:userId', verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const page = +req.query.page || 1;
+    const limit = +req.query.limit || 50;
+    const skip = (page - 1) * limit;
+
+    const messages = await Message.find({
+      $or: [
+        { senderId: req.user.userId, receiverId: userId },
+        { senderId: userId, receiverId: req.user.userId }
+      ]
+    })
+    .populate('senderId', 'name profileImage')
+    .populate('receiverId', 'name profileImage')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+    const total = await Message.countDocuments({
+      $or: [
+        { senderId: req.user.userId, receiverId: userId },
+        { senderId: userId, receiverId: req.user.userId }
+      ]
+    });
+
+    // Marquer les messages de l'autre utilisateur comme lus
+    await Message.updateMany(
+      {
+        senderId: userId,
+        receiverId: req.user.userId,
+        isRead: false
+      },
+      {
+        $set: { isRead: true, readAt: new Date() }
+      }
+    );
+
+    res.json({ 
+      success: true,
+      messages: messages.reverse(), // Ordre chronologique
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        total
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur récupération messages:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+// Marquer un message comme lu
+app.put('/api/messages/:id/read', verifyToken, async (req, res) => {
+  try {
+    const message = await Message.findOne({
+      _id: req.params.id,
+      receiverId: req.user.userId
+    });
+
+    if (!message) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Message non trouvé' 
+      });
+    }
+
+    message.isRead = true;
+    message.readAt = new Date();
+    await message.save();
+
+    res.json({ 
+      success: true,
+      message 
+    });
+  } catch (error) {
+    console.error('❌ Erreur mise à jour message:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+// Supprimer un message
+app.delete('/api/messages/:id', verifyToken, async (req, res) => {
+  try {
+    const message = await Message.findOne({
+      _id: req.params.id,
+      $or: [
+        { senderId: req.user.userId },
+        { receiverId: req.user.userId }
+      ]
+    });
+
+    if (!message) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Message non trouvé' 
+      });
+    }
+
+    await message.deleteOne();
+
+    res.json({ 
+      success: true,
+      message: 'Message supprimé' 
+    });
+  } catch (error) {
+    console.error('❌ Erreur suppression message:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+// ========================================
 // ROUTES : PROFIL UTILISATEUR
 // ========================================
 
@@ -1725,10 +2001,16 @@ app.post('/api/publications/:id/comments', verifyToken, commentUpload.array('med
     // Envoyer une notification au propriétaire de la publication
     await pub.populate('userId', 'name email fcmToken notificationSettings');
     if (pub.userId._id.toString() !== req.user.userId && pub.userId.notificationSettings?.comments !== false) {
-      const commenter = await User.findById(req.user.userId).select('name');
+      const commenter = await User.findById(req.user.userId).select('name profileImage');
       const commentText = content?.trim() || '[média]';
       
-      // Notification push
+      // Créer un aperçu de la publication (texte ou première image)
+      const publicationPreview = pub.content?.substring(0, 80) || '';
+      const publicationImage = pub.media && pub.media.length > 0 && pub.media[0].type === 'image' 
+        ? pub.media[0].url 
+        : null;
+      
+      // Notification push avec preview de la publication
       await sendPushNotification(pub.userId._id, {
         title: '💬 Nouveau commentaire',
         body: `${commenter.name}: ${commentText.substring(0, 100)}`,
@@ -1736,12 +2018,23 @@ app.post('/api/publications/:id/comments', verifyToken, commentUpload.array('med
           type: 'comment',
           publicationId: pub._id.toString(),
           commentId: addedComment._id.toString(),
-          userId: req.user.userId
+          userId: req.user.userId,
+          userName: commenter.name,
+          userImage: commenter.profileImage || '',
+          publicationPreview: publicationPreview,
+          publicationImage: publicationImage,
+          commentText: commentText.substring(0, 200)
         }
       });
 
-      // Email notification
+      // Email notification avec preview
       if (pub.userId.email) {
+        const publicationPreviewHtml = publicationImage 
+          ? `<div style="text-align: center; margin: 15px 0;">
+               <img src="${publicationImage}" style="max-width: 100%; border-radius: 10px; max-height: 200px; object-fit: cover;" />
+             </div>`
+          : '';
+        
         const emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: linear-gradient(135deg, #00FF88, #00CC66); padding: 20px; text-align: center;">
@@ -1752,8 +2045,19 @@ app.post('/api/publications/:id/comments', verifyToken, commentUpload.array('med
               <p style="font-size: 16px; color: #333;">
                 <strong>${commenter.name}</strong> a commenté votre publication :
               </p>
+              
+              ${publicationPreview ? `
+                <div style="background: #e8f5e9; padding: 15px; border-radius: 10px; margin: 15px 0; border-left: 4px solid #00CC66;">
+                  <p style="font-size: 13px; color: #666; margin: 0; font-style: italic;">Votre publication :</p>
+                  <p style="font-size: 14px; color: #333; margin: 5px 0 0 0;">${publicationPreview}${publicationPreview.length >= 80 ? '...' : ''}</p>
+                </div>
+              ` : ''}
+              
+              ${publicationPreviewHtml}
+              
               <div style="background: white; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #00FF88;">
-                <p style="font-size: 14px; color: #555; margin: 0;">${commentText}</p>
+                <p style="font-size: 13px; color: #666; margin: 0 0 8px 0;">Commentaire :</p>
+                <p style="font-size: 14px; color: #555; margin: 0;"><strong>${commenter.name}</strong>: ${commentText}</p>
               </div>
               <p style="text-align: center;">
                 <a href="${BASE_URL}" style="display: inline-block; padding: 12px 30px; background: #00FF88; color: black; text-decoration: none; border-radius: 25px; font-weight: bold;">
