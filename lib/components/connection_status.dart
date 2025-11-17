@@ -115,12 +115,16 @@ class _ConnectionStatusWidgetState extends State<ConnectionStatusWidget> {
         children: [
           const Icon(Icons.cloud_done, color: Colors.green, size: 14),
           const SizedBox(width: 6),
-          Text(
-            'Connecté à ${ApiService.baseUrl}',
-            style: const TextStyle(
-              color: Colors.green,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              'Connecté à ${ApiService.baseUrl}',
+              style: const TextStyle(
+                color: Colors.green,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ),
         ],
