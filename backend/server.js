@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { WebSocketServer } = require('ws');
+const admin = require('firebase-admin');
 const { 
   uploadCloudinary, 
   publicationUpload, 
@@ -20,6 +21,54 @@ const {
   employeeUpload, 
   deleteFromCloudinary 
 } = require('./cloudynary');
+
+// ========================================
+// INITIALISATION FIREBASE ADMIN SDK
+// ========================================
+let firebaseInitialized = false;
+
+try {
+  let serviceAccount;
+  
+  // Option 1: Variable d'environnement JSON (pour Render/Production)
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    console.log('📝 Chargement Firebase depuis variable d\'environnement FIREBASE_SERVICE_ACCOUNT');
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  }
+  // Option 2: Ancienne variable pour compatibilité
+  else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    console.log('📝 Chargement Firebase depuis variable d\'environnement FIREBASE_SERVICE_ACCOUNT_JSON');
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } 
+  // Option 3: Fichier local (pour développement)
+  else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+    const serviceAccountPath = path.join(__dirname, process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+    
+    if (fs.existsSync(serviceAccountPath)) {
+      console.log('📝 Chargement Firebase depuis fichier:', serviceAccountPath);
+      serviceAccount = require(serviceAccountPath);
+    } else {
+      console.warn('⚠️ Fichier Firebase non trouvé:', serviceAccountPath);
+    }
+  } else {
+    console.warn('⚠️ Aucune configuration Firebase trouvée (ni FIREBASE_SERVICE_ACCOUNT, ni FIREBASE_SERVICE_ACCOUNT_JSON, ni FIREBASE_SERVICE_ACCOUNT_PATH)');
+  }
+  
+  if (serviceAccount) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      projectId: serviceAccount.project_id
+    });
+    
+    firebaseInitialized = true;
+    console.log('✅ Firebase Admin SDK initialisé');
+    console.log(`   Project ID: ${serviceAccount.project_id}`);
+  }
+} catch (error) {
+  console.error('❌ Erreur initialisation Firebase:', error.message);
+  console.warn('⚠️ Les notifications push ne fonctionneront pas');
+  console.warn('💡 Ajoutez FIREBASE_SERVICE_ACCOUNT_JSON en variable d\'environnement ou placez le fichier JSON');
+}
 
 const app = express();
 
@@ -74,7 +123,7 @@ const SERVER_IP = getLocalNetworkIP();
 let BASE_URL;
 if (process.env.NODE_ENV === 'production' && process.env.RENDER) {
   // En production sur Render, utiliser l'URL Render
-  BASE_URL = process.env.RENDER_EXTERNAL_URL || 'https://center-backend-pvkq.onrender.com';
+  BASE_URL = process.env.RENDER_EXTERNAL_URL || 'https://center-backend-v9rf.onrender.com';
   console.log(`🌐 Mode PRODUCTION détecté (Render)`);
 } else {
   // En développement, utiliser l'IP locale
@@ -733,8 +782,9 @@ app.post('/api/users/fcm-token', verifyToken, async (req, res) => {
 async function sendPushNotification(userId, notification) {
   try {
     const user = await User.findById(userId);
-    if (!user || !user.fcmToken) {
-      console.log(`⚠️ Pas de token FCM pour user ${userId}`);
+    if (!user) {
+      console.log(`⚠️ Utilisateur ${userId} non trouvé`);
+      return { success: false, error: 'User not found' };
     }
 
     // Créer la notification en base de données
@@ -744,32 +794,97 @@ async function sendPushNotification(userId, notification) {
       title: notification.title,
       message: notification.body,
       data: notification.data || {},
-      isRead: false
+      read: false
     });
     await notifDoc.save();
     console.log(`✅ Notification enregistrée en DB pour user ${userId}`);
 
-    // Structure de la notification Firebase (si token disponible)
-    if (user && user.fcmToken) {
-      const message = {
-        to: user.fcmToken,
-        notification: {
-          title: notification.title,
-          body: notification.body,
-          sound: 'default',
-          badge: '1',
-        },
-        data: notification.data || {},
-        priority: 'high',
-        content_available: true,
-      };
+    // Compter les notifications non lues
+    const unreadCount = await Notification.countDocuments({
+      userId: userId,
+      read: false
+    });
 
-      // TODO: Implémenter l'envoi avec Firebase Admin SDK
-      // Pour l'instant, on log juste
-      console.log('📤 Notification à envoyer:', message);
+    // Envoyer via WebSocket le nouveau compteur
+    if (typeof broadcastToUser === 'function') {
+      broadcastToUser(userId.toString(), {
+        type: 'notification_update',
+        unreadCount: unreadCount,
+        notification: {
+          id: notifDoc._id.toString(),
+          type: notifDoc.type,
+          title: notifDoc.title,
+          message: notifDoc.message,
+          data: notifDoc.data,
+          createdAt: notifDoc.createdAt
+        }
+      });
     }
-    
-    return { success: true };
+
+    // Envoyer la notification push via Firebase Cloud Messaging
+    if (firebaseInitialized && user.fcmToken) {
+      try {
+        const message = {
+          token: user.fcmToken,
+          notification: {
+            title: notification.title,
+            body: notification.body
+          },
+          data: {
+            ...notification.data,
+            notificationId: notifDoc._id.toString(),
+            timestamp: new Date().toISOString(),
+            unreadCount: unreadCount.toString()
+          },
+          android: {
+            priority: 'high',
+            notification: {
+              sound: 'default',
+              channelId: 'center_notifications',
+              priority: 'high',
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              tag: notifDoc.type // Grouper les notifications par type
+            }
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: unreadCount, // Badge avec le nombre exact
+                contentAvailable: true
+              }
+            }
+          }
+        };
+
+        const response = await admin.messaging().send(message);
+        console.log(`✅ Notification push envoyée via FCM:`, response);
+        console.log(`   User: ${user.email || userId}`);
+        console.log(`   Title: ${notification.title}`);
+        console.log(`   Badge: ${unreadCount}`);
+        
+        return { success: true, messageId: response, unreadCount };
+      } catch (fcmError) {
+        // Gérer les erreurs spécifiques FCM
+        if (fcmError.code === 'messaging/invalid-registration-token' || 
+            fcmError.code === 'messaging/registration-token-not-registered') {
+          console.log(`⚠️ Token FCM invalide pour ${user.email}, suppression du token`);
+          user.fcmToken = '';
+          await user.save();
+        } else {
+          console.error('❌ Erreur FCM:', fcmError.message);
+        }
+        return { success: false, error: fcmError, dbSaved: true, unreadCount };
+      }
+    } else {
+      if (!firebaseInitialized) {
+        console.log('⚠️ Firebase non initialisé, notification enregistrée en DB uniquement');
+      } else if (!user.fcmToken) {
+        console.log(`⚠️ Pas de token FCM pour user ${user.email || userId}`);
+      }
+      return { success: true, dbOnly: true, unreadCount };
+    }
   } catch (error) {
     console.error('❌ Erreur envoi notification:', error);
     return { success: false, error };
@@ -800,9 +915,11 @@ async function sendEmailNotification(userEmail, subject, htmlContent) {
   }
 }
 
-// Initialiser les fonctions de notification dans le controller
+// Initialiser les fonctions de notification et les modèles dans le controller
 const publicationController = require('./controllers/publicationController');
+publicationController.initModels(Publication, User, Notification);
 publicationController.initNotifications(sendPushNotification, sendEmailNotification, BASE_URL);
+publicationController.initWebSocket(broadcastToAll);
 
 // Envoyer une notification à un utilisateur
 app.post('/api/notifications/send', verifyToken, async (req, res) => {
@@ -894,9 +1011,25 @@ app.put('/api/notifications/:id/read', verifyToken, async (req, res) => {
     notification.read = true;
     await notification.save();
 
+    // Compter les notifications non lues restantes
+    const unreadCount = await Notification.countDocuments({
+      userId: req.user.userId,
+      read: false
+    });
+
+    // Mettre à jour le badge via WebSocket
+    if (typeof broadcastToUser === 'function') {
+      broadcastToUser(req.user.userId, {
+        type: 'notification_read',
+        unreadCount: unreadCount,
+        notificationId: req.params.id
+      });
+    }
+
     res.json({ 
       success: true,
-      notification 
+      notification,
+      unreadCount
     });
   } catch (error) {
     console.error('❌ Erreur mise à jour notification:', error);
@@ -1715,7 +1848,7 @@ app.delete('/api/publications/:id', verifyToken, async (req, res) => {
 });
 
 app.post('/api/publications/:id/like', verifyToken, async (req, res) => {
-  const pub = await Publication.findById(req.params.id).populate('userId', 'name fcmToken notificationSettings');
+  const pub = await Publication.findById(req.params.id).populate('userId', 'name email fcmToken notificationSettings');
   const index = pub.likes.indexOf(req.user.userId);
   const isLiking = index === -1;
   
@@ -1726,20 +1859,61 @@ app.post('/api/publications/:id/like', verifyToken, async (req, res) => {
     
     // Envoyer une notification au propriétaire de la publication
     if (pub.userId._id.toString() !== req.user.userId && pub.userId.notificationSettings?.likes !== false) {
-      const liker = await User.findById(req.user.userId).select('name');
+      const liker = await User.findById(req.user.userId).select('name profileImage');
+      
+      // Notification push avec preview
+      const contentPreview = pub.content?.substring(0, 50) || '[Publication]';
       await sendPushNotification(pub.userId._id, {
         title: '❤️ Nouveau like',
         body: `${liker.name} a aimé votre publication`,
         data: {
           type: 'like',
           publicationId: pub._id.toString(),
-          userId: req.user.userId
+          userId: req.user.userId,
+          userName: liker.name,
+          userImage: liker.profileImage || '',
+          publicationPreview: contentPreview
         }
       });
+
+      // Email de notification
+      if (pub.userId.email) {
+        await sendEmailNotification(
+          pub.userId.email,
+          `❤️ ${liker.name} a aimé votre publication`,
+          `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #FF0066, #FF6B9D); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0;">❤️ Nouveau like</h1>
+            </div>
+            <div style="padding: 30px; background: #f5f5f5; border-radius: 0 0 10px 10px;">
+              <p style="font-size: 16px; color: #333;">Bonjour <strong>${pub.userId.name}</strong>,</p>
+              <p style="font-size: 16px; color: #333;"><strong>${liker.name}</strong> a aimé votre publication :</p>
+              <div style="background: white; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #FF0066;">
+                <p style="font-size: 14px; color: #666; margin: 0;">${contentPreview}${pub.content?.length > 50 ? '...' : ''}</p>
+              </div>
+              <p style="text-align: center;">
+                <a href="${BASE_URL}/publications/${pub._id}" style="display: inline-block; padding: 12px 30px; background: #FF0066; color: white; text-decoration: none; border-radius: 25px; font-weight: bold;">
+                  Voir la publication
+                </a>
+              </p>
+            </div>
+          </div>`
+        );
+      }
     }
   }
   
   await pub.save();
+
+  // Broadcast via WebSocket
+  if (typeof broadcastToAll === 'function') {
+    broadcastToAll({
+      type: 'publication_like',
+      publicationId: pub._id.toString(),
+      likesCount: pub.likes.length,
+      isLiked: isLiking
+    });
+  }
 
   res.json({ message: isLiking ? 'Liké' : 'Like retiré', likesCount: pub.likes.length });
 });
@@ -2154,120 +2328,9 @@ app.post('/api/publications/:pubId/comments/:commentId/like', verifyToken, async
   }
 });
 
-app.post('/api/publications/:id/comments', verifyToken, async (req, res) => {
-  try {
-    const { content } = req.body;
-    if (!content?.trim()) return res.status(400).json({ message: 'Commentaire requis' });
-
-    const pub = await Publication.findById(req.params.id).populate('userId', 'name email fcmToken notificationSettings');
-    if (!pub || !pub.isActive) return res.status(404).json({ message: 'Publication non trouvée' });
-
-    // Récupérer les infos du commentateur
-    const commenter = await User.findById(req.user.userId).select('name email profileImage');
-    if (!commenter) return res.status(404).json({ message: 'Utilisateur non trouvé' });
-
-    // Ajouter le commentaire
-    pub.comments.push({ userId: req.user.userId, content: content.trim() });
-    await pub.save();
-
-    const comment = pub.comments[pub.comments.length - 1];
-    await pub.populate('comments.userId', 'name email profileImage');
-
-    // ✅ ENVOYER NOTIFICATION SI CE N'EST PAS L'AUTEUR QUI COMMENTE
-    if (pub.userId && pub.userId._id.toString() !== req.user.userId) {
-      const publicationAuthor = pub.userId;
-
-      // Notification Push
-      if (publicationAuthor.fcmToken && publicationAuthor.notificationSettings?.comments !== false) {
-        console.log(`\n📲 Envoi notification push pour commentaire`);
-        console.log(`De: ${commenter.name} (${commenter.email})`);
-        console.log(`À: ${publicationAuthor.name} (${publicationAuthor.email})`);
-        
-        await sendPushNotification(publicationAuthor._id, {
-          title: '💬 Nouveau commentaire',
-          body: `${commenter.name} a commenté: "${content.trim().substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
-          data: {
-            type: 'comment',
-            publicationId: pub._id.toString(),
-            commentId: comment._id.toString(),
-            commenterName: commenter.name,
-            commenterAvatar: commenter.profileImage || '',
-            deepLink: `${BASE_URL}/publications/${pub._id}`
-          }
-        });
-      }
-
-      // Email de notification
-      if (publicationAuthor.email && publicationAuthor.notificationSettings?.emailNotifications !== false) {
-        console.log(`📧 Envoi email notification pour commentaire`);
-        
-        const publicationPreview = pub.content ? pub.content.substring(0, 100) : '[Publication avec média]';
-        const emailHtml = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #00D4FF, #FFD700); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-              .comment-box { background: white; padding: 20px; border-left: 4px solid #00D4FF; margin: 20px 0; border-radius: 5px; }
-              .button { display: inline-block; padding: 12px 30px; background: #00D4FF; color: white; text-decoration: none; border-radius: 25px; margin: 20px 0; }
-              .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; }
-              .avatar { width: 50px; height: 50px; border-radius: 50%; margin-right: 15px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>💬 Nouveau commentaire</h1>
-              </div>
-              <div class="content">
-                <p>Bonjour <strong>${publicationAuthor.name}</strong>,</p>
-                <p><strong>${commenter.name}</strong> a commenté votre publication :</p>
-                
-                <div class="comment-box">
-                  <p><strong>Commentaire :</strong></p>
-                  <p style="font-size: 16px;">"${content.trim()}"</p>
-                </div>
-
-                <p><strong>Votre publication :</strong></p>
-                <p style="color: #666; font-style: italic;">"${publicationPreview}${pub.content?.length > 100 ? '...' : ''}"</p>
-
-                <center>
-                  <a href="${BASE_URL}/publications/${pub._id}" class="button">Voir la publication</a>
-                </center>
-
-                <p style="color: #999; font-size: 14px; margin-top: 30px;">
-                  Cette notification a été envoyée automatiquement par Center App.
-                </p>
-              </div>
-              <div class="footer">
-                <p>© 2025 Center App. Tous droits réservés.</p>
-                <p>Gérez vos préférences de notification dans l'application</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `;
-
-        await sendEmailNotification(
-          publicationAuthor.email,
-          `💬 ${commenter.name} a commenté votre publication`,
-          emailHtml
-        );
-      }
-    }
-
-    res.status(201).json({ 
-      message: 'Commentaire ajouté',
-      comment: comment.toObject()
-    });
-  } catch (error) {
-    console.error('❌ Erreur ajout commentaire:', error);
-    res.status(500).json({ message: 'Erreur serveur' });
-  }
-});
+// ⚠️ ROUTE SUPPRIMÉE - DOUBLON
+// La route complète avec upload de média est définie plus haut (ligne ~2026)
+// Cette version simplifiée sans média était redondante
 
 app.delete('/api/publications/:id/media/:mediaIndex', verifyToken, async (req, res) => {
   const pub = await Publication.findById(req.params.id);

@@ -4,7 +4,7 @@
 
 ### 1. Configuration du serveur (`lib/config/server_config.dart`)
 - **Mode Production activé** : `isProduction = true`
-- **URL directe** : `https://center-backend-pvkq.onrender.com`
+- **URL directe** : `https://center-backend-v9rf.onrender.com`
 - **Plus de détection automatique** : connexion instantanée à Render
 
 ### 2. Service API (`lib/api_service.dart`)

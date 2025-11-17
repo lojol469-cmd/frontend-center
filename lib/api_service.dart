@@ -148,6 +148,38 @@ class ApiService {
     _baseUrl = null;
     await initialize();
   }
+
+  // ========================================
+  // GESTION TOKEN FCM (FIREBASE CLOUD MESSAGING)
+  // ========================================
+
+  /// Envoyer le token FCM au serveur pour les notifications push
+  static Future<Map<String, dynamic>> updateFcmToken(String token, String fcmToken) async {
+    await initialize();
+    
+    try {
+      developer.log('📲 Envoi token FCM au serveur...', name: 'ApiService');
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/users/fcm-token'),
+        headers: _authHeaders(token),
+        body: jsonEncode({'fcmToken': fcmToken}),
+      );
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        developer.log('✅ Token FCM enregistré', name: 'ApiService');
+        return {'success': true, 'data': data};
+      } else {
+        developer.log('❌ Erreur enregistrement FCM: ${data['message']}', name: 'ApiService');
+        return {'success': false, 'message': data['message']};
+      }
+    } catch (e) {
+      developer.log('❌ Exception updateFcmToken: $e', name: 'ApiService');
+      return {'success': false, 'message': 'Erreur réseau'};
+    }
+  }
   
   // Vérifier si le serveur est accessible
   static Future<bool> checkConnection() async {

@@ -52,6 +52,12 @@ tools/
 .env.local
 .env.production
 
+# Firebase Admin SDK - Clé privée (NE JAMAIS COMMITER!)
+firebase-service-account.json
+serviceAccountKey.json
+firebase/*.json
+*-firebase-adminsdk-*.json
+
 # ============================================
 # UPLOADS & STORAGE (Cloudinary utilisé)
 # ============================================

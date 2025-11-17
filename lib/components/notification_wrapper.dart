@@ -20,11 +20,27 @@ class NotificationWrapper extends StatefulWidget {
 
 class _NotificationWrapperState extends State<NotificationWrapper> {
   StreamSubscription? _webSocketSubscription;
+  bool _notificationServiceInitialized = false;
 
   @override
   void initState() {
     super.initState();
+    _initializeNotifications();
     _listenToWebSocket();
+  }
+  
+  /// Initialiser le service de notifications
+  Future<void> _initializeNotifications() async {
+    if (_notificationServiceInitialized) return;
+    
+    try {
+      final notificationService = NotificationService();
+      await notificationService.initialize(context);
+      _notificationServiceInitialized = true;
+      debugPrint('✅ NotificationService initialisé dans NotificationWrapper');
+    } catch (e) {
+      debugPrint('❌ Erreur initialisation NotificationService: $e');
+    }
   }
 
   @override

@@ -29,6 +29,7 @@ void main() async {
   
   // Mode Production : Connexion directe à Render (pas de détection IP)
   debugPrint('🌐 Mode Production : ${ServerConfig.productionUrl}');
+  debugPrint('📡 Notifications via WebSocket + Notifications Locales');
   
   runApp(const CenterApp());
 }
@@ -239,6 +240,8 @@ class AppProvider extends ChangeNotifier {
         // Connecter WebSocket si authentifié
         if (_accessToken != null) {
           _wsService.connect(_accessToken!);
+          // Écouter les mises à jour de notifications via WebSocket
+          _setupWebSocketNotificationListener();
         }
       }
       
@@ -333,5 +336,36 @@ class AppProvider extends ChangeNotifier {
     _unreadMessagesCount = 0;
     _hasUnreadNotifications = false;
     notifyListeners();
+  }
+
+  // Écouter les messages WebSocket pour mettre à jour le badge
+  void _setupWebSocketNotificationListener() {
+    _wsService.stream.listen((data) {
+      final type = data['type'] as String?;
+      
+      switch (type) {
+        case 'notification_update':
+          // Mise à jour du compteur depuis le serveur
+          final count = data['unreadCount'] as int? ?? 0;
+          setUnreadMessagesCount(count);
+          debugPrint('🔔 Badge mis à jour: $count notifications');
+          break;
+          
+        case 'notification_read':
+          // Une notification a été lue
+          final count = data['unreadCount'] as int? ?? 0;
+          setUnreadMessagesCount(count);
+          debugPrint('✅ Notification lue, badge: $count');
+          break;
+          
+        case 'new_message':
+        case 'new_comment':
+        case 'new_like':
+          // Nouveau message/notification - incrémenter
+          incrementUnreadMessages();
+          debugPrint('📬 Nouvelle notification reçue');
+          break;
+      }
+    });
   }
 }

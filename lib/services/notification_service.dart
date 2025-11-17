@@ -11,7 +11,8 @@ import '../pages/social_page.dart';
 import '../pages/comments_page.dart';
 import '../pages/profile_page.dart';
 
-/// Service de gestion des notifications push (Web Push via polling)
+/// Service de gestion des notifications push (WebSocket + Notifications Locales)
+/// Les notifications arrivent du backend via WebSocket et sont affichées localement
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
@@ -35,10 +36,80 @@ class NotificationService {
       // Configurer les notifications locales
       await _setupLocalNotifications();
       
-      debugPrint('✅ NotificationService initialisé avec succès');
+      // Vérifier que le context est toujours monté
+      if (!context.mounted) return;
+      
+      // ✅ Écouter les notifications du backend via WebSocket
+      _setupWebSocketListener(context);
+      
+      debugPrint('✅ NotificationService initialisé (WebSocket + Notifications Locales)');
+      debugPrint('📡 En attente des notifications du backend...');
+      debugPrint('🔔 Les notifications s\'afficheront dans la barre de notification Android');
+      
+      // Envoyer une notification de test après 3 secondes pour vérifier
+      Future.delayed(const Duration(seconds: 3), () {
+        _showTestNotification();
+      });
     } catch (e) {
       debugPrint('❌ Erreur initialisation NotificationService: $e');
     }
+  }
+  
+  /// Afficher une notification de test pour vérifier le fonctionnement
+  Future<void> _showTestNotification() async {
+    await _showLocalNotification({
+      'title': '✅ Notifications activées',
+      'body': 'Vous recevrez les notifications ici même quand l\'app est fermée',
+      'data': {'type': 'test'},
+    });
+    debugPrint('🧪 Notification de test envoyée');
+  }
+
+  /// Écouter les notifications via WebSocket
+  void _setupWebSocketListener(BuildContext context) {
+    if (!context.mounted) return;
+    
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    
+    appProvider.webSocketStream.listen((data) {
+      final type = data['type'] as String?;
+      
+      debugPrint('📨 WebSocket message reçu: $type');
+      
+      // Afficher les nouvelles notifications reçues via WebSocket
+      if (type == 'notification_update') {
+        final notification = data['notification'] as Map<String, dynamic>?;
+        if (notification != null) {
+          debugPrint('🔔 Affichage notification: ${notification['title']}');
+          _showLocalNotification(notification);
+        }
+      }
+      
+      // Aussi afficher pour les likes, commentaires, messages
+      else if (type == 'new_like') {
+        _showLocalNotification({
+          'title': '❤️ Nouveau like',
+          'message': data['message'] ?? 'Quelqu\'un a aimé votre publication',
+          'data': data,
+        });
+      }
+      else if (type == 'new_comment') {
+        _showLocalNotification({
+          'title': '💬 Nouveau commentaire',
+          'message': data['message'] ?? 'Nouveau commentaire sur votre publication',
+          'data': data,
+        });
+      }
+      else if (type == 'new_message') {
+        _showLocalNotification({
+          'title': '📩 Nouveau message',
+          'message': data['message'] ?? 'Vous avez reçu un nouveau message',
+          'data': data,
+        });
+      }
+    });
+    
+    debugPrint('🔔 Écoute WebSocket des notifications activée');
   }
 
   /// Démarrer le polling des notifications
@@ -198,7 +269,7 @@ class NotificationService {
   Future<void> _showLocalNotification(Map<String, dynamic> notificationData) async {
     try {
       final title = notificationData['title'] ?? 'Nouvelle notification';
-      final body = notificationData['body'] ?? '';
+      final body = notificationData['body'] ?? notificationData['message'] ?? '';
       final id = notificationData['_id']?.hashCode ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
       final details = _getNotificationDetails(notificationData);
@@ -208,10 +279,11 @@ class NotificationService {
         title,
         body,
         details,
-        payload: json.encode(notificationData['data']),
+        payload: json.encode(notificationData['data'] ?? {}),
       );
       
-      debugPrint('📩 Notification affichée: $title');
+      debugPrint('📩 Notification affichée EXTERNE: $title');
+      debugPrint('   Message: $body');
     } catch (e) {
       debugPrint('❌ Erreur affichage notification: $e');
     }

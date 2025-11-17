@@ -108,7 +108,7 @@ dependencies:
   url_launcher: ^6.3.1
   share_plus: ^10.1.3
   
-  # Push Notifications (Web Push - Polling)
+  # Push Notifications (Locales uniquement - WebSocket pour les notifications temps réel)
   flutter_local_notifications: ^18.0.1
   
   # Charts et graphiques

@@ -11,9 +11,9 @@ flutter pub get
 
 # 3. Afficher la configuration
 Write-Host "`n=== CONFIGURATION PRODUCTION ===" -ForegroundColor Green
-Write-Host "URL Backend: https://center-backend-pvkq.onrender.com" -ForegroundColor White
+Write-Host "URL Backend: https://center-backend-v9rf.onrender.com" -ForegroundColor White
 Write-Host "Mode: Production (pas de détection IP)" -ForegroundColor White
-Write-Host "WebSocket: wss://center-backend-pvkq.onrender.com" -ForegroundColor White
+Write-Host "WebSocket: wss://center-backend-v9rf.onrender.com" -ForegroundColor White
 
 # 4. Lancer l'application
 Write-Host "`n3. Lancement de l'application..." -ForegroundColor Yellow

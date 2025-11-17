@@ -614,7 +614,7 @@ class _StoryViewPageState extends State<StoryViewPage> {
         userName = email.isNotEmpty ? email.split('@')[0] : 'Utilisateur';
       }
     }
-    
+      
     debugPrint('👤 Final userName: $userName');
     
     final rawProfileImage = user?['profileImage'] as String? ?? '';
