@@ -25,7 +25,7 @@ class _ChatGPTPageState extends State<ChatGPTPage> with TickerProviderStateMixin
   bool _isLoading = false;
   
   // IP détectée automatiquement par le backend
-  static const String baseUrl = 'http://192.168.1.68:8001';
+  static const String baseUrl = 'https://center-backend-pvkq.onrender.com';
   
   @override
   void initState() {

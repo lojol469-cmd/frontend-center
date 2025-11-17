@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api_service.dart';
+import '../config/server_config.dart';
 
 /// Widget pour afficher le statut de connexion au serveur
 class ConnectionStatusWidget extends StatefulWidget {
@@ -90,7 +91,7 @@ class _ConnectionStatusWidgetState extends State<ConnectionStatusWidget> {
               Icon(Icons.cloud_off, color: Colors.red, size: 14),
               SizedBox(width: 6),
               Text(
-                'Déconnecté - Tap pour reconnecter',
+                'Déconnecté',
                 style: TextStyle(
                   color: Colors.red,
                   fontSize: 11,
@@ -103,6 +104,34 @@ class _ConnectionStatusWidgetState extends State<ConnectionStatusWidget> {
       );
     }
 
+    // En production, affichage simplifié
+    if (ServerConfig.isProduction) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.green.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.green, width: 1),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_done, color: Colors.green, size: 14),
+            SizedBox(width: 6),
+            Text(
+              'En ligne',
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // En développement, afficher l'URL complète
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(

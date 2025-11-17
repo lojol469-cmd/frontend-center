@@ -34,10 +34,15 @@ class WebSocketService {
     try {
       // Utiliser l'URL du serveur détecté par ApiService
       final baseUrl = ApiService.baseUrl.replaceAll('http://', '').replaceAll('https://', '');
-      debugPrint('🔌 Connexion WebSocket à ws://$baseUrl...');
+      
+      // Déterminer le protocole WebSocket (wss pour HTTPS, ws pour HTTP)
+      final wsProtocol = ApiService.baseUrl.startsWith('https') ? 'wss' : 'ws';
+      final wsUrl = '$wsProtocol://$baseUrl';
+      
+      debugPrint('🔌 Connexion WebSocket à $wsUrl...');
       
       _channel = WebSocketChannel.connect(
-        Uri.parse('ws://$baseUrl'),
+        Uri.parse(wsUrl),
       );
 
       // Envoyer le token d'authentification

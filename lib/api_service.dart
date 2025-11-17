@@ -40,7 +40,11 @@ class ApiService {
   // Getter pour l'URL de base
   static String get baseUrl {
     if (_baseUrl == null) {
-      // URL par défaut si pas encore détectée
+      // ✅ En production, toujours utiliser Render
+      if (ServerConfig.isProduction) {
+        return ServerConfig.productionUrl;
+      }
+      // En développement, URL par défaut
       return ServerConfig.buildUrl(_possibleIPs[0]);
     }
     return _baseUrl!;
@@ -94,6 +98,15 @@ class ApiService {
   static Future<void> initialize() async {
     if (_isInitialized) return;
     
+    // ✅ MODE PRODUCTION: Utiliser directement l'URL Render
+    if (ServerConfig.isProduction) {
+      _baseUrl = ServerConfig.productionUrl;
+      _isInitialized = true;
+      developer.log('🌐 Production Mode - URL: $_baseUrl', name: 'ApiService');
+      return;
+    }
+    
+    // MODE DÉVELOPPEMENT: Détection automatique
     developer.log('🔍 API Service - Détection automatique du serveur...', name: 'ApiService');
     developer.log('📡 Test de ${_possibleIPs.length} adresses IP', name: 'ApiService');
     

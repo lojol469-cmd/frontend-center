@@ -1,67 +1,53 @@
 /// Configuration du serveur backend
 /// 
-/// Ce fichier centralise toutes les adresses IP possibles pour le serveur.
-/// L'application essaiera automatiquement chaque adresse jusqu'à trouver celle qui fonctionne.
-/// 
-/// AJOUTER UNE NOUVELLE ADRESSE IP:
-/// Ajoutez simplement l'IP dans la liste `serverIPs` ci-dessous.
-/// 
-/// EXEMPLES:
-/// - WiFi maison: '192.168.1.98'
-/// - Point d'accès mobile: '192.168.43.1'
-/// - WiFi bureau: '10.0.0.5'
-/// - VPN: '172.16.0.1'
+/// En production, utilise directement l'URL Render sans détection automatique
 library;
 
 class ServerConfig {
-  /// Port du serveur backend Node.js
+  /// URL de production Render (HTTPS)
+  static const String productionUrl = 'https://center-backend-pvkq.onrender.com';
+  
+  /// Port du serveur backend Node.js (pour développement local uniquement)
   static const int serverPort = 5000;
   
-  /// Liste des adresses IP à tester automatiquement
-  /// L'ordre est important: la première IP qui répond sera utilisée
+  /// Mode de production (true = utilise uniquement Render, false = détection auto)
+  static const bool isProduction = true;
+  
+  /// Liste des adresses IP pour développement local (ignorée en production)
   static const List<String> serverIPs = [
-    // 🌐 Production Render (priorité absolue)
-    'center-backend-pvkq.onrender.com',
-    
-    // IP actuelle WiFi (détectée par ipconfig)
+    // IP locale pour tests en développement
     '192.168.1.66',
-    
-    // WiFi principal (alternative)
     '192.168.1.98',
-    
-    // Point d'accès mobile (hotspot)
-    '192.168.43.1',
-    
-    // Émulateur Android
-    '10.0.2.2',
-    
-    // Localhost (pour tests sur ordinateur)
     'localhost',
     '127.0.0.1',
-    
-    // AJOUTEZ VOS PROPRES IP ICI:
-    // '192.168.0.100',  // Exemple: autre réseau WiFi
-    // '10.0.0.50',      // Exemple: réseau bureau
   ];
   
   /// Timeout pour chaque test de connexion (en secondes)
-  static const int connectionTimeout = 3;
+  static const int connectionTimeout = 5;
   
   /// Endpoint pour tester la connexion au serveur
   static const String healthCheckEndpoint = '/api/server-info';
   
-  /// Construire l'URL complète pour une IP donnée
+  /// Obtenir l'URL du serveur (production ou développement)
+  static String getBaseUrl() {
+    if (isProduction) {
+      return productionUrl;
+    }
+    // En développement, utiliser la première IP locale
+    return buildUrl(serverIPs.first);
+  }
+  
+  /// Construire l'URL complète pour une IP donnée (dev uniquement)
   static String buildUrl(String ip) {
-    // Si c'est le domaine Render (HTTPS)
     if (ip.contains('onrender.com')) {
       return 'https://$ip';
     }
-    // Sinon HTTP pour les IPs locales
     return 'http://$ip:$serverPort';
   }
   
-  /// Obtenir l'URL de test pour une IP
+  /// Obtenir l'URL de test
   static String getTestUrl(String ip) {
     return '${buildUrl(ip)}$healthCheckEndpoint';
   }
 }
+

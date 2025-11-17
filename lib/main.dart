@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'pages/main_page.dart';
-import 'api_service.dart';
+import 'config/server_config.dart';
 import 'websocket_service.dart';
 import 'theme/theme_provider.dart';
 import 'components/notification_wrapper.dart';
@@ -23,10 +23,12 @@ void main() async {
     ),
   );
   
-  // FORCER le reset et l'utilisation de l'adresse par défaut (192.168.1.66:5000)
-  ApiService.reset();
-  ApiService.useDefaultUrl();
-  debugPrint('🔧 API Service réinitialisé - BaseURL: ${ApiService.baseUrl}');
+  // ✅ PRODUCTION MODE: Effacer le cache d'URL et forcer Render
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove('api_base_url'); // Supprimer l'ancienne URL en cache
+  
+  // Mode Production : Connexion directe à Render (pas de détection IP)
+  debugPrint('🌐 Mode Production : ${ServerConfig.productionUrl}');
   
   runApp(const CenterApp());
 }
