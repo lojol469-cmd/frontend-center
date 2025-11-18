@@ -184,11 +184,13 @@ class ApiService {
   // Vérifier si le serveur est accessible
   static Future<bool> checkConnection() async {
     try {
-      final testUrl = '$baseUrl$apiPrefix/server-info';
+      // Utiliser une route publique qui existe réellement
+      final testUrl = '$baseUrl$apiPrefix/publications/shared/test';
       final response = await http.get(Uri.parse(testUrl)).timeout(
         const Duration(seconds: 3),
       );
-      return response.statusCode == 200;
+      // Accepter 404 comme réponse valide (route existe mais ID test n'existe pas)
+      return response.statusCode == 200 || response.statusCode == 404;
     } catch (e) {
       return false;
     }
