@@ -13,13 +13,13 @@ import 'components/notification_wrapper.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Configuration de la barre de statut
+  // Configuration de la barre de statut (sera ajustée selon le thème)
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
+      statusBarIconBrightness: Brightness.light, // Blanc pour thèmes sombres
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
   
@@ -60,16 +60,12 @@ class CenterApp extends StatelessWidget {
               debugShowCheckedModeBanner: false,
               home: Scaffold(
                 body: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.white, Color(0xFFF8FFF8)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
+                  decoration: BoxDecoration(
+                    gradient: themeProvider.currentTheme.gradient,
                   ),
-                  child: const Center(
+                  child: Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFF25D366),
+                      color: themeProvider.currentTheme.primary,
                     ),
                   ),
                 ),
@@ -141,53 +137,53 @@ class CenterApp extends StatelessWidget {
         ),
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: theme.surface,
         elevation: 4,
-        shadowColor: Colors.black.withValues(alpha: 0.1),
+        shadowColor: theme.isDark ? Colors.black.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(
-            color: Color(0xFF00FF88),
+          side: BorderSide(
+            color: theme.primary,
             width: 1,
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: theme.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: Color(0xFF00FF88),
+          borderSide: BorderSide(
+            color: theme.primary,
             width: 1,
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: Color(0xFF00FF88),
+          borderSide: BorderSide(
+            color: theme.primary,
             width: 1,
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: Color(0xFF00FF88),
+          borderSide: BorderSide(
+            color: theme.primary,
             width: 2,
           ),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        labelStyle: const TextStyle(color: Colors.white),
-        hintStyle: const TextStyle(color: Colors.white70),
+        labelStyle: TextStyle(color: theme.text),
+        hintStyle: TextStyle(color: theme.textSecondary),
       ),
       dividerTheme: const DividerThemeData(
         color: Color(0xFF00FF88),
         thickness: 1,
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: Color(0xFF00FF88),
-        unselectedItemColor: Colors.black54,
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: theme.surface,
+        selectedItemColor: theme.primary,
+        unselectedItemColor: theme.textSecondary,
         elevation: 8,
         type: BottomNavigationBarType.fixed,
       ),

@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "392431159146",
+    "firebase_url": "https://msdos-6eb64-default-rtdb.firebaseio.com",
+    "project_id": "msdos-6eb64",
+    "storage_bucket": "msdos-6eb64.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:392431159146:android:ad26cfdf8d22d0bc410713",
+        "android_client_info": {
+          "package_name": "com.setraf"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "392431159146-911fe8cluac8hc44s3ntmdfa2hfn6a21.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDTyfhWuYa4S4g7Nsde7WnUNxE0F-Iq7s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "392431159146-911fe8cluac8hc44s3ntmdfa2hfn6a21.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

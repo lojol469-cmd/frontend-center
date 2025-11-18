@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -172,7 +173,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360 || screenHeight < 640;
+    final isVerySmallScreen = screenWidth < 320 || screenHeight < 568;
+
     return Scaffold(
       body: ImageBackground(
         imagePath: _selectedImage,
@@ -183,25 +188,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           color: themeProvider.primaryColor,
           child: SafeArea(
             bottom: false,
-            child: CustomScrollView(
-              slivers: [
-                _buildAppBar(),
-                SliverPadding(
-                  padding: const EdgeInsets.all(24),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      _buildWelcomeSection(),
-                      const SizedBox(height: 32),
-                      _buildStatsSection(),
-                      const SizedBox(height: 32),
-                      _buildQuickActions(),
-                      const SizedBox(height: 32),
-                      _buildRecentPublications(),
-                      SizedBox(height: 100 + MediaQuery.of(context).padding.bottom),
-                    ]),
-                  ),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return CustomScrollView(
+                  slivers: [
+                    _buildAppBar(),
+                    SliverPadding(
+                      padding: EdgeInsets.all(isVerySmallScreen ? 12 : isSmallScreen ? 16 : 24),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          _buildWelcomeSection(),
+                          SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
+                          _buildStatsSection(),
+                          SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
+                          _buildQuickActions(),
+                          SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
+                          _buildRecentPublications(),
+                          // Bottom padding with safe area consideration to prevent overflow
+                          SizedBox(height: max(24.0, MediaQuery.of(context).padding.bottom + 16.0)),
+                        ]),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -212,8 +222,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Widget _buildAppBar() {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final screenHeight = MediaQuery.of(context).size.height;
+        final isSmallScreen = screenWidth < 360 || screenHeight < 640;
+        final isVerySmallScreen = screenWidth < 320 || screenHeight < 568;
+
+        // Ajuster les tailles pour éviter que les boutons soient trop petits
+        final buttonSize = isVerySmallScreen ? 44.0 : isSmallScreen ? 48.0 : 52.0;
+        final iconSize = isVerySmallScreen ? 22.0 : isSmallScreen ? 24.0 : 26.0;
+        final fontSize = isVerySmallScreen ? 9.5 : isSmallScreen ? 10.5 : 11.0;
+        final spacing = isVerySmallScreen ? 10.0 : isSmallScreen ? 12.0 : 16.0;
+
         return SliverAppBar(
-          expandedHeight: 120,
+          expandedHeight: isVerySmallScreen ? 90 : isSmallScreen ? 105 : 120,
           floating: true,
           pinned: true,
           backgroundColor: Colors.transparent,
@@ -229,7 +250,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   ],
                 ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: EdgeInsets.symmetric(
+                horizontal: isVerySmallScreen ? 12 : isSmallScreen ? 16 : 24,
+                vertical: isVerySmallScreen ? 10 : isSmallScreen ? 12 : 16,
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -240,8 +264,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         clipBehavior: Clip.none,
                         children: [
                           Container(
-                            width: 50,
-                            height: 50,
+                            width: buttonSize,
+                            height: buttonSize,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: themeProvider.gradient,
@@ -294,27 +318,50 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                             ),
                         ],
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: spacing),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Tableau de bord',
-                              style: TextStyle(
-                                color: themeProvider.textColor,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
+                        child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Bouton Hub
+                              _buildCenterButton(
+                                icon: Icons.device_hub,
+                                label: 'Hub',
+                                onTap: () {
+                                  debugPrint('Navigation vers Hub');
+                                },
+                                size: buttonSize,
+                                iconSize: iconSize,
+                                fontSize: fontSize,
                               ),
-                            ),
-                            Text(
-                              'Vue d\'ensemble de votre activité',
-                              style: TextStyle(
-                                color: themeProvider.textSecondaryColor,
-                                fontSize: 14,
+                              SizedBox(width: spacing),
+                              // Bouton Live
+                              _buildCenterButton(
+                                icon: Icons.live_tv,
+                                label: 'Live',
+                                onTap: () {
+                                  debugPrint('Navigation vers Live');
+                                },
+                                size: buttonSize,
+                                iconSize: iconSize,
+                                fontSize: fontSize,
                               ),
-                            ),
-                          ],
+                              SizedBox(width: spacing),
+                              // Bouton Création
+                              _buildCenterButton(
+                                icon: Icons.create,
+                                label: 'Création',
+                                onTap: () {
+                                  debugPrint('Navigation vers Création');
+                                },
+                                size: buttonSize,
+                                iconSize: iconSize,
+                                fontSize: fontSize,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       // Bouton notifications avec badge
@@ -428,7 +475,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       Text(
                         'Bonjour,',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Provider.of<ThemeProvider>(context, listen: false).isDarkMode ? Colors.grey[300] : Colors.grey[800],
                           fontSize: 16,
                         ),
                       ),
@@ -450,7 +497,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       Text(
                         'Prêt à conquérir cette journée ?',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Provider.of<ThemeProvider>(context, listen: false).isDarkMode ? Colors.grey[200] : Colors.grey[700],
                           fontSize: 14,
                         ),
                       ),
@@ -481,7 +528,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       ? Icon(
                           Icons.person_rounded,
                           size: 40,
-                          color: Colors.white,
+                          color: Provider.of<ThemeProvider>(context, listen: false).isDarkMode ? Colors.grey[300] : Colors.grey[700],
                         )
                       : null,
                 ),
@@ -649,7 +696,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             Text(
               'Actions rapides',
               style: TextStyle(
-                color: Colors.black,
+                color: Provider.of<ThemeProvider>(context, listen: false).isDarkMode ? Colors.grey[200] : Colors.grey[800],
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
               ),
@@ -683,7 +730,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             Text(
               'Publications récentes',
               style: TextStyle(
-                color: Colors.black,
+                color: Provider.of<ThemeProvider>(context, listen: false).isDarkMode ? Colors.grey[200] : Colors.grey[800],
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
               ),
@@ -1130,5 +1177,54 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     } else {
       return 'Il y a ${(difference.inDays / 7).floor()}sem';
     }
+  }
+
+  /// Widget pour créer un bouton centré avec design transparent
+  Widget _buildCenterButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    double size = 50,
+    double iconSize = 24,
+    double fontSize = 10,
+  }) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: themeProvider.primaryColor.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: iconSize,
+                  color: themeProvider.primaryColor,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: themeProvider.primaryColor,
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

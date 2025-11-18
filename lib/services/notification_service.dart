@@ -19,7 +19,7 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
-  
+
   Timer? _pollingTimer;
   DateTime? _lastCheckTime;
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -28,24 +28,24 @@ class NotificationService {
   /// Initialiser les notifications
   Future<void> initialize(BuildContext context) async {
     _appContext = context;
-    
+
     try {
       // Demander la permission (Android 13+)
       await _requestPermission();
-      
+
       // Configurer les notifications locales
       await _setupLocalNotifications();
-      
+
       // Vérifier que le context est toujours monté
       if (!context.mounted) return;
-      
+
       // ✅ Écouter les notifications du backend via WebSocket
       _setupWebSocketListener(context);
-      
+
       debugPrint('✅ NotificationService initialisé (WebSocket + Notifications Locales)');
       debugPrint('📡 En attente des notifications du backend...');
       debugPrint('🔔 Les notifications s\'afficheront dans la barre de notification Android');
-      
+
       // Envoyer une notification de test après 3 secondes pour vérifier
       Future.delayed(const Duration(seconds: 3), () {
         _showTestNotification();
@@ -54,7 +54,7 @@ class NotificationService {
       debugPrint('❌ Erreur initialisation NotificationService: $e');
     }
   }
-  
+
   /// Afficher une notification de test pour vérifier le fonctionnement
   Future<void> _showTestNotification() async {
     await _showLocalNotification({
@@ -68,37 +68,29 @@ class NotificationService {
   /// Écouter les notifications via WebSocket
   void _setupWebSocketListener(BuildContext context) {
     if (!context.mounted) return;
-    
+
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    
-    appProvider.webSocketStream.listen((data) {
+
+    appProvider.webSocketStream.listen((data) async {
       final type = data['type'] as String?;
-      
+
       debugPrint('📨 WebSocket message reçu: $type');
-      
+
       // Afficher les nouvelles notifications reçues via WebSocket
       if (type == 'notification_update') {
         final notification = data['notification'] as Map<String, dynamic>?;
         if (notification != null) {
           debugPrint('🔔 Affichage notification: ${notification['title']}');
-          _showLocalNotification(notification);
+          await _showLocalNotification(notification);
         }
       }
-      
+
       // Aussi afficher pour les likes, commentaires, messages
       else if (type == 'new_like') {
-        _showLocalNotification({
-          'title': '❤️ Nouveau like',
-          'message': data['message'] ?? 'Quelqu\'un a aimé votre publication',
-          'data': data,
-        });
+        await _handleNewLike(data);
       }
       else if (type == 'new_comment') {
-        _showLocalNotification({
-          'title': '💬 Nouveau commentaire',
-          'message': data['message'] ?? 'Nouveau commentaire sur votre publication',
-          'data': data,
-        });
+        await _handleNewComment(data);
       }
       else if (type == 'new_message') {
         _showLocalNotification({
@@ -108,22 +100,182 @@ class NotificationService {
         });
       }
     });
-    
-    debugPrint('🔔 Écoute WebSocket des notifications activée');
+
+  }
+
+  /// Gérer les nouveaux likes avec preview
+  Future<void> _handleNewLike(Map<String, dynamic> data) async {
+    try {
+      final publicationId = data['publicationId'] as String?;
+      if (publicationId == null) {
+        // Fallback simple
+        _showLocalNotification({
+          'title': '❤️ Nouveau like',
+          'message': data['message'] ?? 'Quelqu\'un a aimé votre publication',
+          'data': data,
+        });
+        return;
+      }
+
+      // Récupérer les détails de la publication pour la preview
+      final appProvider = Provider.of<AppProvider>(_appContext!, listen: false);
+      final token = appProvider.accessToken;
+
+      if (token == null) return;
+
+      final publicationResult = await ApiService.getPublication(token, publicationId);
+
+      if (publicationResult['success'] == true) {
+        final publication = publicationResult['publication'] as Map<String, dynamic>;
+        final content = publication['content'] as String? ?? '';
+        final media = publication['media'] as List? ?? [];
+
+        // Créer la notification avec preview
+        final notificationData = {
+          'title': '❤️ Nouveau like',
+          'body': _buildLikeNotificationMessage(data, content, media),
+          'data': {
+            'type': 'like',
+            'publicationId': publicationId,
+            'publication': publication, // Inclure les détails pour la preview
+          },
+        };
+
+        // Ajouter l'image de preview si disponible
+        if (media.isNotEmpty) {
+          final firstMedia = media[0] as Map<String, dynamic>;
+          final mediaUrl = firstMedia['url'] as String?;
+          if (mediaUrl != null) {
+            (notificationData['data'] as Map<String, dynamic>)['imageUrl'] = mediaUrl;
+          }
+        }
+
+        await _showLocalNotification(notificationData);
+      } else {
+        // Fallback si échec de récupération
+        _showLocalNotification({
+          'title': '❤️ Nouveau like',
+          'message': data['message'] ?? 'Quelqu\'un a aimé votre publication',
+          'data': data,
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur _handleNewLike: $e');
+      // Fallback
+      _showLocalNotification({
+        'title': '❤️ Nouveau like',
+        'message': data['message'] ?? 'Quelqu\'un a aimé votre publication',
+        'data': data,
+      });
+    }
+  }
+
+  /// Gérer les nouveaux commentaires avec preview
+  Future<void> _handleNewComment(Map<String, dynamic> data) async {
+    try {
+      final publicationId = data['publicationId'] as String?;
+      final commentId = data['commentId'] as String?;
+
+      if (publicationId == null) {
+        // Fallback simple
+        _showLocalNotification({
+          'title': '💬 Nouveau commentaire',
+          'message': data['message'] ?? 'Nouveau commentaire sur votre publication',
+          'data': data,
+        });
+        return;
+      }
+
+      // Récupérer les détails de la publication pour la preview
+      final appProvider = Provider.of<AppProvider>(_appContext!, listen: false);
+      final token = appProvider.accessToken;
+
+      if (token == null) return;
+
+      final publicationResult = await ApiService.getPublication(token, publicationId);
+
+      if (publicationResult['success'] == true) {
+        final publication = publicationResult['publication'] as Map<String, dynamic>;
+        final content = publication['content'] as String? ?? '';
+        final media = publication['media'] as List? ?? [];
+
+        // Récupérer le contenu du commentaire si possible
+        String commentPreview = '';
+        if (commentId != null) {
+          try {
+            final commentsResult = await ApiService.getPublicationComments(token, publicationId);
+            if (commentsResult['success'] == true) {
+              final comments = commentsResult['comments'] as List;
+              final comment = comments.cast<Map<String, dynamic>>().firstWhere(
+                (c) => c['_id'] == commentId,
+                orElse: () => {},
+              );
+              if (comment.isNotEmpty) {
+                commentPreview = comment['content'] as String? ?? '';
+                // Limiter la longueur du commentaire
+                if (commentPreview.length > 50) {
+                  commentPreview = '${commentPreview.substring(0, 47)}...';
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('❌ Erreur récupération commentaire: $e');
+          }
+        }
+
+        // Créer la notification avec preview
+        final notificationData = {
+          'title': '💬 Nouveau commentaire',
+          'body': _buildCommentNotificationMessage(data, content, commentPreview, media),
+          'data': {
+            'type': 'comment',
+            'publicationId': publicationId,
+            'commentId': commentId,
+            'publication': publication, // Inclure les détails pour la preview
+          },
+        };
+
+        // Ajouter l'image de preview si disponible
+        if (media.isNotEmpty) {
+          final firstMedia = media[0] as Map<String, dynamic>;
+          final mediaUrl = firstMedia['url'] as String?;
+          if (mediaUrl != null) {
+            (notificationData['data'] as Map<String, dynamic>)['imageUrl'] = mediaUrl;
+          }
+        }
+
+        await _showLocalNotification(notificationData);
+      } else {
+        // Fallback si échec de récupération
+        _showLocalNotification({
+          'title': '💬 Nouveau commentaire',
+          'message': data['message'] ?? 'Nouveau commentaire sur votre publication',
+          'data': data,
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur _handleNewComment: $e');
+      // Fallback
+      _showLocalNotification({
+        'title': '💬 Nouveau commentaire',
+        'message': data['message'] ?? 'Nouveau commentaire sur votre publication',
+        'data': data,
+      });
+    }
   }
 
   /// Démarrer le polling des notifications
   void startPolling() {
     _lastCheckTime = DateTime.now().subtract(const Duration(hours: 1)); // Vérifier 1h en arrière au démarrage
-    
+
     // Vérifier immédiatement
     _checkNewNotifications();
-    
+
     // Puis vérifier toutes les 30 secondes
     _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _checkNewNotifications();
     });
-    
+
     debugPrint('🔄 Polling des notifications démarré');
   }
 
@@ -137,11 +289,11 @@ class NotificationService {
   /// Vérifier les nouvelles notifications
   Future<void> _checkNewNotifications() async {
     if (_appContext == null || !_appContext!.mounted) return;
-    
+
     try {
       final appProvider = Provider.of<AppProvider>(_appContext!, listen: false);
       final token = appProvider.accessToken;
-      
+
       if (token == null) return;
 
       final response = await http.get(
@@ -155,18 +307,18 @@ class NotificationService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final notifications = data['notifications'] as List? ?? [];
-        
+
         // Compter les notifications non lues
         final unreadCount = notifications.where((notif) => notif['read'] != true).length;
-        
+
         // Mettre à jour le badge sur l'icône de l'app
         await updateAppBadge(unreadCount);
-        
+
         // Filtrer les notifications non lues créées après le dernier check
         final newNotifications = notifications.where((notif) {
           if (notif['read'] == true) return false;
           if (_lastCheckTime == null) return true;
-          
+
           final createdAt = DateTime.parse(notif['createdAt']);
           return createdAt.isAfter(_lastCheckTime!);
         }).toList();
@@ -175,7 +327,7 @@ class NotificationService {
         for (var notif in newNotifications) {
           await _showLocalNotification(notif);
         }
-        
+
         if (newNotifications.isNotEmpty) {
           _lastCheckTime = DateTime.now();
           debugPrint('📬 ${newNotifications.length} nouvelles notifications affichées');
@@ -196,7 +348,7 @@ class NotificationService {
       debugPrint('❌ Erreur mise à jour badge: $e');
     }
   }
-  
+
   /// Retirer le badge de l'icône de l'application
   Future<void> clearAppBadge() async {
     try {
@@ -214,7 +366,7 @@ class NotificationService {
               AndroidFlutterLocalNotificationsPlugin>();
 
       final granted = await androidImplementation?.requestNotificationsPermission();
-      
+
       if (granted == true) {
         debugPrint('✅ Permission notifications accordée');
       } else {
@@ -227,14 +379,14 @@ class NotificationService {
   Future<void> _setupLocalNotifications() async {
     // Configuration Android
     const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
-    
+
     // Configuration iOS (si nécessaire)
     const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    
+
     const InitializationSettings initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
@@ -260,7 +412,7 @@ class NotificationService {
       await _localNotifications
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
-      
+
       debugPrint('✅ Canal de notification créé');
     }
   }
@@ -281,7 +433,7 @@ class NotificationService {
         details,
         payload: json.encode(notificationData['data'] ?? {}),
       );
-      
+
       debugPrint('📩 Notification affichée EXTERNE: $title');
       debugPrint('   Message: $body');
     } catch (e) {
@@ -374,21 +526,21 @@ class NotificationService {
             _navigateToPublication(publicationId);
           }
           break;
-          
+
         case 'comment':
           final publicationId = data['publicationId'] as String?;
           if (publicationId != null) {
             _navigateToComments(publicationId);
           }
           break;
-          
+
         case 'follower':
           final userId = data['userId'] as String?;
           if (userId != null) {
             _navigateToProfile(userId);
           }
           break;
-          
+
         case 'message':
           final chatId = data['chatId'] as String?;
           if (chatId != null) {
@@ -405,9 +557,9 @@ class NotificationService {
   void _navigateToPublication(String publicationId) {
     final context = navigatorKey.currentContext;
     if (context == null) return;
-    
+
     debugPrint('📱 Navigation vers publication: $publicationId');
-    
+
     // Naviguer vers SocialPage (qui affichera toutes les publications)
     // L'utilisateur pourra scroll pour trouver la publication
     Navigator.of(context).pushAndRemoveUntil(
@@ -420,9 +572,9 @@ class NotificationService {
   void _navigateToComments(String publicationId) {
     final context = navigatorKey.currentContext;
     if (context == null) return;
-    
+
     debugPrint('💬 Navigation vers commentaires: $publicationId');
-    
+
     // Naviguer vers la page des commentaires
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -438,9 +590,9 @@ class NotificationService {
   void _navigateToProfile(String userId) {
     final context = navigatorKey.currentContext;
     if (context == null) return;
-    
+
     debugPrint('👤 Navigation vers profil: $userId');
-    
+
     // Naviguer vers la page de profil
     // Note: Si c'est le profil de l'utilisateur connecté, on va vers ProfilePage
     // Sinon, il faudrait une page UserProfilePage (à créer)
@@ -453,9 +605,9 @@ class NotificationService {
   void _navigateToChat(String chatId) {
     final context = navigatorKey.currentContext;
     if (context == null) return;
-    
+
     debugPrint('💬 Navigation vers chat: $chatId');
-    
+
     // Note: La fonctionnalité de chat n'est pas encore implémentée
     // Pour l'instant, afficher un message
     ScaffoldMessenger.of(context).showSnackBar(
@@ -487,5 +639,41 @@ class NotificationService {
   void dispose() {
     stopPolling();
     _appContext = null;
+  }
+
+  /// Construire le message de notification pour un like avec preview
+  String _buildLikeNotificationMessage(Map<String, dynamic> data, String content, List media) {
+    final userName = data['userName'] as String? ?? 'Quelqu\'un';
+    final previewText = content.isNotEmpty ? content : 'votre publication';
+
+    // Limiter la longueur du contenu
+    final truncatedContent = previewText.length > 30
+        ? '${previewText.substring(0, 27)}...'
+        : previewText;
+
+    final hasMedia = media.isNotEmpty;
+    final mediaType = hasMedia ? '📹 ' : '';
+
+    return '$userName a aimé $mediaType"$truncatedContent"';
+  }
+
+  /// Construire le message de notification pour un commentaire avec preview
+  String _buildCommentNotificationMessage(Map<String, dynamic> data, String content, String commentPreview, List media) {
+    final userName = data['userName'] as String? ?? 'Quelqu\'un';
+    final previewText = content.isNotEmpty ? content : 'votre publication';
+
+    // Limiter la longueur du contenu
+    final truncatedContent = previewText.length > 30
+        ? '${previewText.substring(0, 27)}...'
+        : previewText;
+
+    final hasMedia = media.isNotEmpty;
+    final mediaType = hasMedia ? '📹 ' : '';
+
+    if (commentPreview.isNotEmpty) {
+      return '$userName a commenté $mediaType"$truncatedContent": "$commentPreview"';
+    } else {
+      return '$userName a commenté $mediaType"$truncatedContent"';
+    }
   }
 }
