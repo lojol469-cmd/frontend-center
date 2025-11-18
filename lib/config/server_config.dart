@@ -5,7 +5,7 @@ library;
 
 class ServerConfig {
   /// URL de production Render (HTTPS)
-  static const String productionUrl = 'https://setraf-store-backend.onrender.com';
+  static const String productionUrl = 'https://center-backend-v9rf.onrender.com';
   
   /// Port du serveur backend Node.js (pour développement local uniquement)
   static const int serverPort = 5000;

@@ -23,13 +23,16 @@ class _ConnectionStatusWidgetState extends State<ConnectionStatusWidget> {
   Future<void> _checkConnection() async {
     setState(() => _isChecking = true);
     
+    debugPrint('🔍 Vérification de la connexion au serveur...');
     final connected = await ApiService.checkConnection();
+    debugPrint('📡 Résultat de la vérification de connexion: $connected');
     
     if (mounted) {
       setState(() {
         _isConnected = connected;
         _isChecking = false;
       });
+      debugPrint('✅ Statut de connexion mis à jour: $_isConnected');
     }
   }
 

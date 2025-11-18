@@ -184,13 +184,12 @@ class ApiService {
   // Vérifier si le serveur est accessible
   static Future<bool> checkConnection() async {
     try {
-      // Utiliser une route publique qui existe réellement
-      final testUrl = '$baseUrl$apiPrefix/publications/shared/test';
-      final response = await http.get(Uri.parse(testUrl)).timeout(
-        const Duration(seconds: 3),
+      // Utiliser une requête HEAD simple sur la base URL pour vérifier la connexion
+      final response = await http.head(Uri.parse(baseUrl)).timeout(
+        const Duration(seconds: 5),
       );
-      // Accepter 404 comme réponse valide (route existe mais ID test n'existe pas)
-      return response.statusCode == 200 || response.statusCode == 404;
+      // Accepter tout code de statut 2xx ou 404 (serveur répond)
+      return response.statusCode >= 200 && response.statusCode < 300 || response.statusCode == 404;
     } catch (e) {
       return false;
     }
@@ -2338,9 +2337,9 @@ class ApiService {
   // Récupérer les messages d'un groupe (utilise les routes existantes)
   Future<Map<String, dynamic>> getGroupMessages(String token, String groupId) async {
     try {
-      // Pour le groupe général, on utilise un receiverId spécial
+      // Utiliser la route correcte du serveur pour le groupe général
       final response = await http.get(
-        Uri.parse('$baseUrl/api/messages/general_group'),
+        Uri.parse('$baseUrl/api/chat/groups/$groupId/messages'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -2377,7 +2376,12 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        // Le serveur retourne 'onlineUsers', on le transforme en 'users' pour la compatibilité
+        return {
+          'success': true,
+          'users': data['onlineUsers'] ?? []
+        };
       } else {
         throw Exception('Erreur ${response.statusCode}: ${response.body}');
       }

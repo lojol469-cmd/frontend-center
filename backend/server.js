@@ -167,13 +167,12 @@ app.use((req, res, next) => {
             return match;
           }
           
-          // Sinon, remplacer par la nouvelle IP
-          const newPort = port || '5000';
-          const newUrl = `http://${SERVER_IP}:${newPort}`;
+          // Sinon, remplacer par la nouvelle URL de base (qui peut être HTTPS en production)
+          const newUrl = BASE_URL;
           
           // Log de la correction (désactiver en production pour performance)
           if (process.env.NODE_ENV !== 'production') {
-            console.log(`🔄 Correction URL: ${ip} → ${SERVER_IP}`);
+            console.log(`🔄 Correction URL: ${ip} → ${BASE_URL}`);
           }
           
           return newUrl;
