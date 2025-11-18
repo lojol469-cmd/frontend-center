@@ -61,7 +61,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
     if (token == null) return;
 
     try {
-      final result = await ApiService.getUsers(token);
+      final result = await ApiService.getUsersList(token);
       if (mounted) {
         setState(() {
           _users = List<Map<String, dynamic>>.from(result['users'] ?? []);

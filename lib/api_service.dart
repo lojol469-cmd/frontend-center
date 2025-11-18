@@ -1957,7 +1957,28 @@ class ApiService {
     }
   }
 
-  // Lister les utilisateurs
+  // Lister les utilisateurs (pour messagerie - accessible à tous)
+  static Future<Map<String, dynamic>> getUsersList(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/users/list'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Lister les utilisateurs (ADMIN seulement - données complètes)
   static Future<Map<String, dynamic>> getUsers(String token) async {
     await _ensureInitialized();
     try {

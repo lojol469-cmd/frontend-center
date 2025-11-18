@@ -32,7 +32,7 @@
     <uses-permission android:name="me.everything.badger.permission.BADGE_COUNT_WRITE" />
     
     <application
-        android:label="center"
+        android:label="SETRAF Center"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:usesCleartextTraffic="true"
