@@ -2333,11 +2333,12 @@ class ApiService {
 
   // ============ CHAT DE GROUPE ============
   
-  // Récupérer les messages d'un groupe
+  // Récupérer les messages d'un groupe (utilise les routes existantes)
   Future<Map<String, dynamic>> getGroupMessages(String token, String groupId) async {
     try {
+      // Pour le groupe général, on utilise un receiverId spécial
       final response = await http.get(
-        Uri.parse('$baseUrl/api/chat/groups/$groupId/messages'),
+        Uri.parse('$baseUrl/api/messages/general_group'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -2345,7 +2346,15 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        // Transformer les données pour correspondre au format attendu
+        return {
+          'success': true,
+          'messages': data['messages']?.map((msg) => {
+            ...msg,
+            'type': 'group_message'
+          })?.toList() ?? []
+        };
       } else {
         throw Exception('Erreur ${response.statusCode}: ${response.body}');
       }

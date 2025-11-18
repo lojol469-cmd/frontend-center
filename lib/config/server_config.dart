@@ -5,13 +5,13 @@ library;
 
 class ServerConfig {
   /// URL de production Render (HTTPS)
-  static const String productionUrl = 'https://center-backend-v9rf.onrender.com';
+  static const String productionUrl = 'https://setraf-store-backend.onrender.com';
   
   /// Port du serveur backend Node.js (pour développement local uniquement)
   static const int serverPort = 5000;
   
   /// Mode de production (true = utilise uniquement Render, false = détection auto)
-  static const bool isProduction = false;
+  static const bool isProduction = true;
   
   /// Liste des adresses IP pour développement local (ignorée en production)
   static const List<String> serverIPs = [
