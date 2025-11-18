@@ -21,6 +21,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _refreshTimer;
+  StreamSubscription? _webSocketSubscription;
+  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -31,21 +33,25 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
 
     // Rafraîchir les conversations toutes les 30 secondes
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      _loadConversations();
+      if (!_isDisposed) {
+        _loadConversations();
+      }
     });
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _searchController.dispose();
     _refreshTimer?.cancel();
+    _webSocketSubscription?.cancel();
     super.dispose();
   }
 
   void _listenToWebSocket() {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    appProvider.webSocketStream.listen((message) {
-      if (!mounted) return;
+    _webSocketSubscription = appProvider.webSocketStream.listen((message) {
+      if (_isDisposed) return;
 
       if (message['type'] == 'new_message') {
         // Un nouveau message a été envoyé, rafraîchir les conversations
@@ -58,12 +64,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final token = appProvider.accessToken;
 
-    if (token == null) return;
+    if (token == null || _isDisposed) return;
 
     try {
       // Tous les utilisateurs voient tous les autres utilisateurs (pas de restriction)
       final result = await ApiService.getUsersList(token);
-      if (mounted) {
+      if (!_isDisposed && mounted) {
         setState(() {
           _users = List<Map<String, dynamic>>.from(result['users'] ?? []);
           _isLoadingUsers = false;
@@ -71,7 +77,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
       }
     } catch (e) {
       debugPrint('Erreur chargement utilisateurs: $e');
-      if (mounted) {
+      if (!_isDisposed && mounted) {
         setState(() => _isLoadingUsers = false);
       }
     }
@@ -81,11 +87,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final token = appProvider.accessToken;
 
-    if (token == null) return;
+    if (token == null || _isDisposed) return;
 
     try {
       final result = await ApiService.getMessageConversations(token);
-      if (mounted) {
+      if (!_isDisposed && mounted) {
         setState(() {
           _conversations = List<Map<String, dynamic>>.from(result['conversations'] ?? []);
           _isLoadingConversations = false;
@@ -93,7 +99,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
       }
     } catch (e) {
       debugPrint('Erreur chargement conversations: $e');
-      if (mounted) {
+      if (!_isDisposed && mounted) {
         setState(() => _isLoadingConversations = false);
       }
     }
@@ -195,7 +201,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
             ),
             child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
           ),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (!_isDisposed && mounted) {
+              Navigator.of(context).pop();
+            }
+          },
         ),
         title: const Text(
           'Messages privés',
@@ -216,6 +226,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
               child: const Icon(Icons.refresh, color: Colors.white, size: 20),
             ),
             onPressed: () async {
+              if (_isDisposed) return;
               setState(() {
                 _isLoadingUsers = true;
                 _isLoadingConversations = true;
