@@ -5,6 +5,7 @@ import '../main.dart';
 import '../api_service.dart';
 import '../theme/theme_provider.dart';
 import 'chat_conversation_page.dart';
+import 'group_chat_page.dart';
 
 class PrivateChatPage extends StatefulWidget {
   const PrivateChatPage({super.key});
@@ -16,22 +17,31 @@ class PrivateChatPage extends StatefulWidget {
 class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderStateMixin {
   List<Map<String, dynamic>> _users = [];
   List<Map<String, dynamic>> _conversations = [];
+  List<Map<String, dynamic>> _onlineUsers = [];
   bool _isLoadingUsers = true;
   bool _isLoadingConversations = true;
+  bool _isLoadingOnlineUsers = true;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _refreshTimer;
+  Timer? _onlineUsersTimer;
 
   @override
   void initState() {
     super.initState();
     _loadUsers();
     _loadConversations();
+    _loadOnlineUsers();
     _listenToWebSocket();
 
     // Rafraîchir les conversations toutes les 30 secondes
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _loadConversations();
+    });
+
+    // Rafraîchir les utilisateurs en ligne toutes les 30 secondes
+    _onlineUsersTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _loadOnlineUsers();
     });
   }
 
@@ -39,6 +49,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
   void dispose() {
     _searchController.dispose();
     _refreshTimer?.cancel();
+    _onlineUsersTimer?.cancel();
     super.dispose();
   }
 
@@ -50,6 +61,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
       if (message['type'] == 'new_message') {
         // Un nouveau message a été envoyé, rafraîchir les conversations
         _loadConversations();
+      } else if (message['type'] == 'user_online' || message['type'] == 'user_offline') {
+        // Statut en ligne changé
+        _loadOnlineUsers();
       }
     });
   }
@@ -95,6 +109,28 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
       debugPrint('Erreur chargement conversations: $e');
       if (mounted) {
         setState(() => _isLoadingConversations = false);
+      }
+    }
+  }
+
+  Future<void> _loadOnlineUsers() async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) return;
+
+    try {
+      final result = await ApiService().getGroupOnlineUsers(token, 'general');
+      if (mounted) {
+        setState(() {
+          _onlineUsers = List<Map<String, dynamic>>.from(result['users'] ?? []);
+          _isLoadingOnlineUsers = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement utilisateurs en ligne: $e');
+      if (mounted) {
+        setState(() => _isLoadingOnlineUsers = false);
       }
     }
   }
@@ -235,7 +271,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
 
             // Contenu principal
             Expanded(
-              child: _isLoadingUsers && _isLoadingConversations
+              child: _isLoadingUsers && _isLoadingConversations && _isLoadingOnlineUsers
                   ? Center(
                       child: Container(
                         padding: const EdgeInsets.all(20),
@@ -253,6 +289,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
                         await Future.wait([
                           _loadUsers(),
                           _loadConversations(),
+                          _loadOnlineUsers(),
                         ]);
                       },
                       color: themeProvider.primaryColor,
@@ -260,6 +297,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
                       child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
+                          // Section Groupe Chat
+                          _buildGroupChatSection(),
+
                           // Conversations récentes
                           if (_filteredConversations.isNotEmpty) ...[
                             _buildSectionHeader('Conversations récentes'),
@@ -279,6 +319,277 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGroupChatSection() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Groupe Chat
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  themeProvider.primaryColor.withValues(alpha: 0.8),
+                  themeProvider.secondaryColor.withValues(alpha: 0.8),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: themeProvider.primaryColor.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.group,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Groupe Général',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${_onlineUsers.length} en ligne',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Header horizontal avec utilisateurs en ligne
+                if (_onlineUsers.isNotEmpty) ...[
+                  const Text(
+                    'Membres actifs',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 70,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _onlineUsers.length,
+                      itemBuilder: (context, index) {
+                        return _buildOnlineUserAvatar(_onlineUsers[index]);
+                      },
+                    ),
+                  ),
+                ] else if (!_isLoadingOnlineUsers) ...[
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        'Aucun membre en ligne',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // Bouton pour accéder au chat de groupe
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
+              leading: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      themeProvider.primaryColor.withValues(alpha: 0.8),
+                      themeProvider.secondaryColor.withValues(alpha: 0.8),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.chat_bubble,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Accéder au chat de groupe',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: const Text(
+                'Discutez avec tous les membres inscrits',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white.withValues(alpha: 0.5),
+                size: 16,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const GroupChatPage(
+                      groupId: 'general',
+                      groupName: 'Groupe Général',
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOnlineUserAvatar(Map<String, dynamic> user) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final userName = user['name'] ?? 'Utilisateur';
+    final userImage = user['profileImage'] ?? '';
+
+    return Container(
+      width: 60,
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      themeProvider.primaryColor.withValues(alpha: 0.8),
+                      themeProvider.secondaryColor.withValues(alpha: 0.8),
+                    ],
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundImage: userImage.isNotEmpty ? NetworkImage(userImage) : null,
+                  backgroundColor: Colors.transparent,
+                  child: userImage.isEmpty
+                      ? Text(
+                          userName.substring(0, 1).toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: 60,
+            child: Text(
+              userName.length > 8 ? '${userName.substring(0, 8)}...' : userName,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }

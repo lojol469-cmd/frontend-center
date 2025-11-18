@@ -11,7 +11,7 @@ class ServerConfig {
   static const int serverPort = 5000;
   
   /// Mode de production (true = utilise uniquement Render, false = détection auto)
-  static const bool isProduction = true;
+  static const bool isProduction = false;
   
   /// Liste des adresses IP pour développement local (ignorée en production)
   static const List<String> serverIPs = [
