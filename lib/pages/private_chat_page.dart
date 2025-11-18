@@ -123,6 +123,46 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
     }).toList();
   }
 
+  List<Map<String, dynamic>> get _allChatItems {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final currentUserId = appProvider.currentUser?['_id'] ?? appProvider.currentUser?['id'];
+
+    // Créer un Set des IDs des utilisateurs qui ont des conversations
+    final conversationUserIds = _filteredConversations.map((conv) => conv['userId']).toSet();
+
+    // Filtrer les utilisateurs pour exclure l'utilisateur actuel et ceux qui ont déjà des conversations
+    final usersWithoutConversations = _filteredUsers.where((user) {
+      return user['_id'] != currentUserId && !conversationUserIds.contains(user['_id']);
+    }).toList();
+
+    // Combiner les conversations et les utilisateurs sans conversation
+    final allItems = <Map<String, dynamic>>[];
+
+    // Ajouter d'abord les conversations (avec un flag pour indiquer que c'est une conversation)
+    for (final conv in _filteredConversations) {
+      allItems.add({
+        ...conv,
+        'isConversation': true,
+      });
+    }
+
+    // Ajouter ensuite les utilisateurs sans conversation
+    for (final user in usersWithoutConversations) {
+      allItems.add({
+        'userId': user['_id'],
+        'userName': user['name'] ?? 'Utilisateur',
+        'userImage': user['profileImage'] ?? '',
+        'userEmail': user['email'] ?? '',
+        'isConversation': false,
+        'lastMessage': '',
+        'lastMessageTime': null,
+        'unreadCount': 0,
+      });
+    }
+
+    return allItems;
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -260,19 +300,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
                       child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
-                          // Conversations récentes
-                          if (_filteredConversations.isNotEmpty) ...[
-                            _buildSectionHeader('Conversations récentes'),
-                            ..._filteredConversations.map((conv) => _buildConversationTile(conv)),
-                            const SizedBox(height: 24),
+                          // Liste unifiée des conversations et utilisateurs
+                          if (_allChatItems.isNotEmpty) ...[
+                            ..._allChatItems.map((item) => _buildUnifiedChatTile(item)),
+                          ] else if (!_isLoadingUsers && !_isLoadingConversations) ...[
+                            _buildEmptyState(),
                           ],
-
-                          // Tous les utilisateurs
-                          _buildSectionHeader('Tous les utilisateurs'),
-                          if (_filteredUsers.isEmpty && !_isLoadingUsers)
-                            _buildEmptyState()
-                          else
-                            ..._filteredUsers.map((user) => _buildUserTile(user)),
                         ],
                       ),
                     ),
@@ -283,48 +316,35 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16, left: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          shadows: [
-            Shadow(
-              color: Colors.black26,
-              offset: Offset(0, 2),
-              blurRadius: 4,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildConversationTile(Map<String, dynamic> conversation) {
+  Widget _buildUnifiedChatTile(Map<String, dynamic> item) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final userName = conversation['userName'] ?? 'Utilisateur';
-    final userImage = conversation['userImage'] ?? '';
-    final lastMessage = conversation['lastMessage'] ?? '';
-    final lastMessageTime = conversation['lastMessageTime'];
-    final unreadCount = conversation['unreadCount'] ?? 0;
+    final isConversation = item['isConversation'] ?? false;
+    final userName = item['userName'] ?? item['name'] ?? 'Utilisateur';
+    final userImage = item['userImage'] ?? item['profileImage'] ?? '';
+    final lastMessage = item['lastMessage'] ?? '';
+    final lastMessageTime = item['lastMessageTime'];
+    final unreadCount = item['unreadCount'] ?? 0;
+    final userEmail = item['userEmail'] ?? item['email'] ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+        color: isConversation
+            ? Colors.white.withValues(alpha: 0.1)
+            : Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
+          color: isConversation
+              ? Colors.white.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.15),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
+            color: isConversation
+                ? Colors.black.withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.05),
+            blurRadius: isConversation ? 10 : 8,
             offset: const Offset(0, 4),
           ),
         ],
@@ -338,10 +358,15 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
-                  colors: [
-                    themeProvider.primaryColor.withValues(alpha: 0.8),
-                    themeProvider.secondaryColor.withValues(alpha: 0.8),
-                  ],
+                  colors: isConversation
+                      ? [
+                          themeProvider.primaryColor.withValues(alpha: 0.8),
+                          themeProvider.secondaryColor.withValues(alpha: 0.8),
+                        ]
+                      : [
+                          themeProvider.secondaryColor.withValues(alpha: 0.8),
+                          themeProvider.accentColor.withValues(alpha: 0.8),
+                        ],
                 ),
               ),
               child: CircleAvatar(
@@ -400,15 +425,19 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
           children: [
             const SizedBox(height: 4),
             Text(
-              lastMessage.length > 50
-                  ? '${lastMessage.substring(0, 50)}...'
-                  : lastMessage,
+              isConversation && lastMessage.isNotEmpty
+                  ? (lastMessage.length > 50
+                      ? '${lastMessage.substring(0, 50)}...'
+                      : lastMessage)
+                  : userEmail,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
+                color: isConversation
+                    ? Colors.white.withValues(alpha: 0.8)
+                    : Colors.white.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
-            if (lastMessageTime != null) ...[
+            if (isConversation && lastMessageTime != null) ...[
               const SizedBox(height: 2),
               Text(
                 _formatTime(lastMessageTime),
@@ -420,114 +449,16 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
             ],
           ],
         ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          color: Colors.white.withValues(alpha: 0.5),
-          size: 16,
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChatConversationPage(
-                userId: conversation['userId'],
-                userName: userName,
-                userImage: userImage,
-              ),
-            ),
-          ).then((_) => _loadConversations());
-        },
-      ),
-    );
-  }
-
-  Widget _buildUserTile(Map<String, dynamic> user) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final currentUserId = appProvider.currentUser?['_id'] ?? appProvider.currentUser?['id'];
-
-    // Ne pas afficher l'utilisateur actuel
-    if (user['_id'] == currentUserId) return const SizedBox.shrink();
-
-    final userName = user['name'] ?? 'Utilisateur';
-    final userEmail = user['email'] ?? '';
-    final userImage = user['profileImage'] ?? '';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                themeProvider.secondaryColor.withValues(alpha: 0.8),
-                themeProvider.accentColor.withValues(alpha: 0.8),
-              ],
-            ),
-          ),
-          child: CircleAvatar(
-            radius: 24,
-            backgroundImage: userImage.isNotEmpty ? NetworkImage(userImage) : null,
-            backgroundColor: Colors.transparent,
-            child: userImage.isEmpty
-                ? Text(
-                    userName.substring(0, 1).toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  )
-                : null,
-          ),
-        ),
-        title: Text(
-          userName,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 2),
-            Text(
-              userEmail,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
         trailing: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: themeProvider.primaryColor.withValues(alpha: 0.2),
+            color: isConversation
+                ? Colors.white.withValues(alpha: 0.1)
+                : themeProvider.primaryColor.withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: Icon(
-            Icons.chat_bubble_outline,
+            isConversation ? Icons.chat : Icons.chat_bubble_outline,
             color: Colors.white,
             size: 20,
           ),
@@ -537,7 +468,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
             context,
             MaterialPageRoute(
               builder: (_) => ChatConversationPage(
-                userId: user['_id'],
+                userId: item['userId'],
                 userName: userName,
                 userImage: userImage,
               ),
