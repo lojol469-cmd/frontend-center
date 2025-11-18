@@ -1117,6 +1117,43 @@ app.post('/api/messages/send', verifyToken, async (req, res) => {
   }
 });
 
+// Récupérer la liste des utilisateurs pour la messagerie (accessible à tous les utilisateurs authentifiés)
+app.get('/api/messages/users', verifyToken, async (req, res) => {
+  try {
+    console.log('\n=== RÉCUPÉRATION UTILISATEURS POUR MESSAGERIE ===');
+    console.log('User ID:', req.user.userId);
+
+    // Récupérer tous les utilisateurs actifs et admins (sauf l'utilisateur actuel)
+    const users = await User.find({
+      _id: { $ne: req.user.userId }, // Exclure l'utilisateur actuel
+      status: { $in: ['active', 'admin'] }
+    })
+    .select('name email profileImage status')
+    .sort({ name: 1 });
+
+    const usersData = users.map(user => ({
+      _id: user._id,
+      name: user.name || user.email.split('@')[0], // Utiliser le nom ou la partie avant @ de l'email
+      email: user.email,
+      profileImage: user.profileImage,
+      status: user.status
+    }));
+
+    console.log(`✅ ${usersData.length} utilisateurs trouvés pour la messagerie`);
+
+    res.json({ 
+      success: true,
+      users: usersData 
+    });
+  } catch (error) {
+    console.error('❌ Erreur récupération utilisateurs messagerie:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
 // Récupérer les conversations (liste des personnes avec qui on a échangé)
 app.get('/api/messages/conversations', verifyToken, async (req, res) => {
   try {

@@ -323,6 +323,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                 Image.network(
                   mediaUrl,
                   fit: BoxFit.cover,
+                  filterQuality: FilterQuality.high,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
                       decoration: BoxDecoration(
@@ -631,8 +632,8 @@ class _StoryVideoThumbnailWidgetState extends State<_StoryVideoThumbnailWidget> 
       final thumbnailData = await VideoThumbnail.thumbnailData(
         video: widget.videoUrl,
         imageFormat: ImageFormat.JPEG,
-        maxWidth: 300,
-        quality: 75,
+        maxWidth: 400,
+        quality: 90,
       );
 
       if (mounted) {
@@ -672,6 +673,7 @@ class _StoryVideoThumbnailWidgetState extends State<_StoryVideoThumbnailWidget> 
         return Image.network(
           widget.fallbackImage!,
           fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
           errorBuilder: (context, error, stackTrace) {
             return Container(
               decoration: BoxDecoration(

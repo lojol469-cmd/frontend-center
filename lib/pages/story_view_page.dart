@@ -820,7 +820,8 @@ class _StoryViewPageState extends State<StoryViewPage> {
         children: [
           Image.network(
             mediaUrl,
-            fit: BoxFit.contain,
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.high,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
               return Center(

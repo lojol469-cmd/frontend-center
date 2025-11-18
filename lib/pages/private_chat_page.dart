@@ -61,6 +61,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
     if (token == null) return;
 
     try {
+      // Tous les utilisateurs voient tous les autres utilisateurs (pas de restriction)
       final result = await ApiService.getUsersList(token);
       if (mounted) {
         setState(() {
