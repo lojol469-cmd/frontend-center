@@ -1957,92 +1957,25 @@ class ApiService {
     }
   }
 
-  // Lister les utilisateurs (pour messagerie - accessible à tous avec fallback)
+  // Lister les utilisateurs (accessible à tous les utilisateurs authentifiés)
   static Future<Map<String, dynamic>> getUsersList(String token) async {
     await _ensureInitialized();
     try {
-      // ✅ CORRECTION TEMPORAIRE - Logique de fallback pour les non-admin
-      // 1. Essayer d'abord /users (admins voient tous les utilisateurs)
-      try {
-        developer.log('🔍 Tentative 1: Récupération via /users (admin)', name: 'ApiService');
-        final response = await http.get(
-          Uri.parse('$baseUrl$apiPrefix/users'),
-          headers: _authHeaders(token),
-        );
+      developer.log('🔍 Récupération de la liste des utilisateurs via /users', name: 'ApiService');
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/users'),
+        headers: _authHeaders(token),
+      );
 
-        final data = json.decode(response.body);
+      final data = json.decode(response.body);
 
-        if (response.statusCode == 200) {
-          developer.log('✅ Succès via /users - Utilisateur admin détecté', name: 'ApiService');
-          return data;
-        }
-      } catch (e) {
-        developer.log('❌ Échec /users (probablement non-admin): ${e.toString().split('\n')[0]}', name: 'ApiService');
+      if (response.statusCode == 200) {
+        developer.log('✅ Liste des utilisateurs récupérée avec succès', name: 'ApiService');
+        return data;
+      } else {
+        developer.log('❌ Erreur récupération utilisateurs: ${response.statusCode} - ${data['message']}', name: 'ApiService');
+        throw Exception(data['message'] ?? 'Erreur de récupération des utilisateurs');
       }
-
-      // 2. Essayer ensuite /messages/users (endpoint public pour tous les utilisateurs)
-      try {
-        developer.log('🔍 Tentative 2: Récupération via /messages/users (tous les utilisateurs)', name: 'ApiService');
-        final response = await http.get(
-          Uri.parse('$baseUrl$apiPrefix/messages/users'),
-          headers: _authHeaders(token),
-        );
-
-        final data = json.decode(response.body);
-
-        if (response.statusCode == 200) {
-          developer.log('✅ Succès via /messages/users - Liste complète des utilisateurs', name: 'ApiService');
-          return data;
-        }
-      } catch (e) {
-        developer.log('❌ Échec /messages/users: ${e.toString().split('\n')[0]}', name: 'ApiService');
-      }
-
-      // 3. Fallback: Extraire les utilisateurs des conversations existantes
-      try {
-        developer.log('🔍 Tentative 3: Fallback via conversations existantes', name: 'ApiService');
-        final conversationsResponse = await http.get(
-          Uri.parse('$baseUrl$apiPrefix/messages/conversations'),
-          headers: _authHeaders(token),
-        );
-
-        if (conversationsResponse.statusCode == 200) {
-          final conversationsData = json.decode(conversationsResponse.body);
-          final conversations = conversationsData['conversations'] ?? [];
-
-          // Extraire les utilisateurs uniques des conversations
-          final userMap = <String, Map<String, dynamic>>{};
-          
-          for (final conversation in conversations) {
-            final otherUser = conversation['otherUser'];
-            if (otherUser != null && otherUser['_id'] != null) {
-              userMap[otherUser['_id']] = {
-                '_id': otherUser['_id'],
-                'name': otherUser['name'] ?? 'Utilisateur inconnu',
-                'email': otherUser['email'] ?? '',
-                'profileImage': otherUser['profileImage'],
-                'isActive': otherUser['isActive'] ?? true,
-              };
-            }
-          }
-
-          final users = userMap.values.toList();
-          developer.log('✅ Fallback réussi - ${users.length} utilisateurs trouvés dans les conversations', name: 'ApiService');
-          
-          return {
-            'success': true,
-            'users': users,
-            'message': 'Utilisateurs récupérés depuis les conversations (fallback)',
-          };
-        }
-      } catch (e) {
-        developer.log('❌ Échec du fallback: ${e.toString().split('\n')[0]}', name: 'ApiService');
-      }
-
-      // Si tout échoue
-      developer.log('❌ Toutes les tentatives ont échoué', name: 'ApiService');
-      throw Exception('Impossible de récupérer la liste des utilisateurs');
-      
     } catch (e) {
       developer.log('❌ Erreur générale getUsersList: $e', name: 'ApiService');
       throw Exception('Erreur de connexion: $e');

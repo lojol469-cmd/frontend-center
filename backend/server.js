@@ -3260,10 +3260,40 @@ app.get('/api/users/me/storage', verifyToken, async (req, res) => {
   }
 });
 
-app.get('/api/users', verifyToken, verifyCanManageUsers, async (req, res) => {
-  const users = await User.find().select('-password -otp -otpExpires');
-  const usersData = users.map(user => user.toObject());
-  res.json({ users: usersData });
+app.get('/api/users', verifyToken, async (req, res) => {
+  try {
+    console.log('\n=== RÉCUPÉRATION TOUS LES UTILISATEURS ===');
+    console.log('User ID:', req.user.userId);
+
+    // Récupérer tous les utilisateurs actifs et admins (sauf l'utilisateur actuel)
+    const users = await User.find({
+      _id: { $ne: req.user.userId }, // Exclure l'utilisateur actuel
+      status: { $in: ['active', 'admin'] }
+    })
+    .select('name email profileImage status')
+    .sort({ name: 1 });
+
+    const usersData = users.map(user => ({
+      _id: user._id,
+      name: user.name || user.email.split('@')[0], // Utiliser le nom ou la partie avant @ de l'email
+      email: user.email,
+      profileImage: user.profileImage,
+      status: user.status
+    }));
+
+    console.log(`✅ ${usersData.length} utilisateurs trouvés pour tous les utilisateurs authentifiés`);
+
+    res.json({
+      success: true,
+      users: usersData
+    });
+  } catch (error) {
+    console.error('❌ Erreur récupération tous les utilisateurs:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
 });
 
 // Route publique pour récupérer la liste des utilisateurs (pour messagerie)
