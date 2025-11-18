@@ -3229,6 +3229,28 @@ app.get('/api/users', verifyToken, verifyCanManageUsers, async (req, res) => {
   res.json({ users: usersData });
 });
 
+// Route publique pour récupérer la liste des utilisateurs (pour messagerie)
+app.get('/api/users/list', verifyToken, async (req, res) => {
+  try {
+    const users = await User.find({ status: { $in: ['active', 'admin'] } })
+      .select('name email profileImage status')
+      .sort({ name: 1 });
+
+    const usersData = users.map(user => ({
+      _id: user._id,
+      name: user.name || user.email.split('@')[0],
+      email: user.email,
+      profileImage: user.profileImage,
+      status: user.status
+    }));
+
+    res.json({ users: usersData });
+  } catch (error) {
+    console.error('Erreur récupération liste utilisateurs:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
 app.put('/api/users/:id/status', verifyToken, verifyCanManageUsers, async (req, res) => {
   const { status } = req.body;
   if (!['active', 'blocked', 'admin'].includes(status)) return res.status(400).json({ message: 'Statut invalide' });
