@@ -213,6 +213,26 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
                 color: Colors.white.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.refresh, color: Colors.white, size: 20),
+            ),
+            onPressed: () async {
+              setState(() {
+                _isLoadingUsers = true;
+                _isLoadingConversations = true;
+              });
+              await Future.wait([
+                _loadUsers(),
+                _loadConversations(),
+              ]);
+            },
+          ),
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
               child: const Icon(Icons.search, color: Colors.white, size: 20),
             ),
             onPressed: () {
@@ -304,6 +324,34 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
                           if (_allChatItems.isNotEmpty) ...[
                             ..._allChatItems.map((item) => _buildUnifiedChatTile(item)),
                           ] else if (!_isLoadingUsers && !_isLoadingConversations) ...[
+                            // Debug info (temporaire pour diagnostiquer le problème)
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              margin: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Debug Info (temporaire):',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text('Users: ${_users.length}, Conversations: ${_conversations.length}, Filtered: ${_filteredUsers.length}', 
+                                    style: TextStyle(color: Colors.white, fontSize: 11)),
+                                  Text('All items: ${_allChatItems.length}', 
+                                    style: TextStyle(color: Colors.white, fontSize: 11)),
+                                ],
+                              ),
+                            ),
                             _buildEmptyState(),
                           ],
                         ],
