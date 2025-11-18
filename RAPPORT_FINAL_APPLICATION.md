@@ -1,8 +1,8 @@
 # 📱 RAPPORT FINAL - APPLICATION CENTER
 
 > **Date de livraison** : 17 Novembre 2025  
-> **Développeur** : lojol469-cmd  
-> **Client** : BelikanM
+> **Développeur** :BelikanM lojol469-cmd  
+> **entreprise** : SETRAF
 
 ---
 
