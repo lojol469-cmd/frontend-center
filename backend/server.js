@@ -167,12 +167,13 @@ app.use((req, res, next) => {
             return match;
           }
           
-          // Sinon, remplacer par la nouvelle URL de base (qui peut être HTTPS en production)
-          const newUrl = BASE_URL;
+          // Sinon, remplacer par la nouvelle IP
+          const newPort = port || '5000';
+          const newUrl = `http://${SERVER_IP}:${newPort}`;
           
           // Log de la correction (désactiver en production pour performance)
           if (process.env.NODE_ENV !== 'production') {
-            console.log(`🔄 Correction URL: ${ip} → ${BASE_URL}`);
+            console.log(`🔄 Correction URL: ${ip} → ${SERVER_IP}`);
           }
           
           return newUrl;
@@ -328,6 +329,9 @@ const messageSchema = new mongoose.Schema({
   }],
   isRead: { type: Boolean, default: false },
   readAt: { type: Date },
+  // Champs pour les messages de groupe
+  isGroupMessage: { type: Boolean, default: false },
+  groupId: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 const Message = mongoose.model('Message', messageSchema);
