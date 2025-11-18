@@ -15,9 +15,11 @@ import '../utils/background_image_manager.dart';
 import 'social_page.dart';
 import 'map_view_page.dart';
 import 'admin_page.dart';
-import 'notifications_list_page.dart';
+
 import 'create/create_employee_page.dart';
 import 'comments_page.dart';
+import 'private_chat_notifications_page.dart';
+import 'private_chat_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -97,16 +99,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         debugPrint('❌ Erreur chargement stats: $e');
       }
 
-      // Charger les notifications
+      // Charger les notifications de chat privées
       try {
-        final notifsResult = await ApiService.getNotifications(token);
-        if (notifsResult['success'] == true && mounted) {
+        final conversationsResult = await ApiService.getMessageConversations(token);
+        if (conversationsResult['success'] == true && mounted) {
+          final conversations = List<Map<String, dynamic>>.from(conversationsResult['conversations'] ?? []);
+          // Compter les messages non lus dans toutes les conversations
+          final unreadCount = conversations.fold<int>(0, (sum, conv) => sum + ((conv['unreadCount'] ?? 0) as int));
           setState(() {
-            _notificationsCount = notifsResult['unreadCount'] ?? 0;
+            _notificationsCount = unreadCount;
           });
         }
       } catch (e) {
-        debugPrint('❌ Erreur chargement notifications: $e');
+        debugPrint('❌ Erreur chargement notifications chat: $e');
       }
 
     } finally {
@@ -179,42 +184,200 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final isVerySmallScreen = screenWidth < 320 || screenHeight < 568;
 
     return Scaffold(
-      body: ImageBackground(
-        imagePath: _selectedImage,
-        opacity: 0.30,
-        withGradient: false,
-        child: RefreshIndicator(
-          onRefresh: _loadStats,
-          color: themeProvider.primaryColor,
-          child: SafeArea(
-            bottom: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return CustomScrollView(
-                  slivers: [
-                    _buildAppBar(),
-                    SliverPadding(
-                      padding: EdgeInsets.all(isVerySmallScreen ? 12 : isSmallScreen ? 16 : 24),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          _buildWelcomeSection(),
-                          SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
-                          _buildStatsSection(),
-                          SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
-                          _buildQuickActions(),
-                          SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
-                          _buildRecentPublications(),
-                          // Bottom padding with safe area consideration to prevent overflow
-                          SizedBox(height: max(24.0, MediaQuery.of(context).padding.bottom + 16.0)),
-                        ]),
-                      ),
-                    ),
-                  ],
-                );
-              },
+      body: Stack(
+        children: [
+          ImageBackground(
+            imagePath: _selectedImage,
+            opacity: 0.30,
+            withGradient: false,
+            child: RefreshIndicator(
+              onRefresh: _loadStats,
+              color: themeProvider.primaryColor,
+              child: SafeArea(
+                bottom: false,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return CustomScrollView(
+                      slivers: [
+                        _buildAppBar(),
+                        SliverPadding(
+                          padding: EdgeInsets.all(isVerySmallScreen ? 12 : isSmallScreen ? 16 : 24),
+                          sliver: SliverList(
+                            delegate: SliverChildListDelegate([
+                              _buildWelcomeSection(),
+                              SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
+                              _buildStatsSection(),
+                              SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
+                              _buildQuickActions(),
+                              SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
+                              _buildRecentPublications(),
+                              // Bottom padding with safe area consideration to prevent overflow
+                              SizedBox(height: max(24.0, MediaQuery.of(context).padding.bottom + 16.0)),
+                            ]),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
             ),
           ),
-        ),
+          // Boutons flottants dans le footer
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).padding.bottom + 16,
+                left: 24,
+                right: 24,
+                top: 16,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Bouton chat personnel avec design bulle transparente
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        FloatingActionButton(
+                          heroTag: 'chat_button',
+                          mini: true,
+                          backgroundColor: themeProvider.primaryColor.withValues(alpha: 0.1),
+                          elevation: 4,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const PrivateChatPage(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: themeProvider.primaryColor.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: themeProvider.primaryColor.withValues(alpha: 0.2),
+                                width: 1.5,
+                              ),
+                              // Effet bulle de chat
+                              boxShadow: [
+                                BoxShadow(
+                                  color: themeProvider.primaryColor.withValues(alpha: 0.1),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              color: themeProvider.primaryColor,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                        // Petite bulle décorative pour ressembler à une bulle de chat
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Container(
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: themeProvider.primaryColor.withValues(alpha: 0.4),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Bouton notifications avec badge
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      FloatingActionButton(
+                        heroTag: 'notifications_button',
+                        mini: true,
+                        backgroundColor: themeProvider.primaryColor.withValues(alpha: 0.1),
+                        elevation: 4,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const PrivateChatNotificationsPage(),
+                            ),
+                          ).then((_) {
+                            // Recharger les stats après retour de la page notifications
+                            _loadStats();
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: themeProvider.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: themeProvider.primaryColor,
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.notifications_rounded,
+                            color: themeProvider.primaryColor,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      // Badge avec le nombre de notifications (style moderne)
+                      if (_notificationsCount > 0)
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [themeProvider.secondaryColor, themeProvider.accentColor],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: themeProvider.surfaceColor,
+                                width: 1.5,
+                              ),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
+                              style: TextStyle(
+                                color: themeProvider.isDarkMode ? Colors.white : Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                height: 1.2,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -364,77 +527,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           ),
                         ),
                       ),
-                      // Bouton notifications avec badge
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          IconButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const NotificationsListPage(),
-                                ),
-                              ).then((_) {
-                                // Recharger les stats après retour de la page notifications
-                                _loadStats();
-                              });
-                            },
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: themeProvider.primaryColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: themeProvider.primaryColor,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.notifications_rounded,
-                                color: themeProvider.primaryColor,
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                          // Badge avec le nombre de notifications (style moderne)
-                          if (_notificationsCount > 0)
-                            Positioned(
-                              right: 6,
-                              top: 6,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [themeProvider.secondaryColor, themeProvider.accentColor],
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: themeProvider.surfaceColor,
-                                    width: 2,
-                                  ),
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 20,
-                                  minHeight: 20,
-                                ),
-                                child: Text(
-                                  _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
-                                  style: TextStyle(
-                                    color: themeProvider.isDarkMode ? Colors.white : Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.2,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                      // Boutons supprimés de l'app bar - déplacés vers le footer flottant
+
                     ],
                   ),
                 ],

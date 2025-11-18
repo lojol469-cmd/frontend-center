@@ -2517,4 +2517,157 @@ class ApiService {
       throw Exception('Erreur de connexion: $e');
     }
   }
+
+  // ========================================
+  // MESSAGERIE PRIVÉE
+  // ========================================
+
+  // Récupérer les conversations privées
+  static Future<Map<String, dynamic>> getMessageConversations(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/messages/conversations'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération des conversations');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Récupérer les messages d'une conversation privée
+  static Future<Map<String, dynamic>> getPrivateMessages(String token, String userId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/messages/$userId'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération des messages');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Envoyer un message privé (texte uniquement)
+  static Future<Map<String, dynamic>> sendPrivateMessage(
+    String token,
+    String receiverId,
+    String content, {
+    String? replyTo,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final body = {
+        'receiverId': receiverId,
+        'content': content,
+        if (replyTo != null) 'replyTo': replyTo,
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/messages/send'),
+        headers: _authHeaders(token),
+        body: json.encode(body),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur d\'envoi du message');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Envoyer un message privé avec médias
+  static Future<Map<String, dynamic>> sendPrivateMessageWithMedia(
+    String token,
+    String receiverId, {
+    String? content,
+    List<File>? mediaFiles,
+    String? replyTo,
+  }) async {
+    await _ensureInitialized();
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl$apiPrefix/messages/send'),
+      );
+
+      request.headers.addAll(_multipartAuthHeaders(token));
+
+      request.fields['receiverId'] = receiverId;
+      if (content != null && content.isNotEmpty) {
+        request.fields['content'] = content;
+      }
+      if (replyTo != null) {
+        request.fields['replyTo'] = replyTo;
+      }
+
+      // Ajouter les fichiers médias
+      if (mediaFiles != null && mediaFiles.isNotEmpty) {
+        for (var file in mediaFiles) {
+          final mimeType = _getMimeType(file.path);
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'media',
+              file.path,
+              contentType: MediaType.parse(mimeType),
+            ),
+          );
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur d\'envoi du message');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Marquer un message comme lu
+  static Future<Map<String, dynamic>> markMessageAsRead(String token, String messageId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl$apiPrefix/messages/$messageId/read'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de marquage comme lu');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
 }

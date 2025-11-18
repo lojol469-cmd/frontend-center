@@ -13,6 +13,7 @@ import 'chat_gpt_page.dart';
 import 'create/create_publication_page.dart';
 import 'create/create_employee_page.dart';
 import 'create/create_marker_page.dart';
+import 'private_chat_page.dart';
 
 class MainPage extends StatelessWidget {
   const MainPage({super.key});
@@ -37,12 +38,14 @@ class MainPage extends StatelessWidget {
               const HomePage(),
               const SocialPage(),
               EmployeesPage(token: appProvider.accessToken ?? ''),
+              const PrivateChatPage(), // Chat privé accessible à tous
               const ProfilePage(),
               const AdminPage(),
             ]
           : [
               const HomePage(),
               const SocialPage(),
+              const PrivateChatPage(), // Chat privé accessible à tous
               const ProfilePage(),
             ];
 
@@ -60,9 +63,6 @@ class MainPage extends StatelessWidget {
   }
 
   Widget _buildFloatingActionButton(BuildContext context, AppProvider appProvider, bool isAdmin) {
-    // N'afficher le FAB que pour les admins
-    if (!isAdmin) return const SizedBox.shrink();
-    
     final themeProvider = Provider.of<ThemeProvider>(context);
     
     return Padding(
@@ -73,8 +73,8 @@ class MainPage extends StatelessWidget {
           gradient: themeProvider.gradient,
         ),
         child: FloatingActionButton(
-          heroTag: 'admin_add',
-          onPressed: () => _showCreateDialog(context),
+          heroTag: 'main_add',
+          onPressed: () => _showCreateDialog(context, isAdmin),
           backgroundColor: Colors.transparent,
           elevation: 0,
           child: Icon(
@@ -135,6 +135,14 @@ class MainPage extends StatelessWidget {
                   icon: Icon(Icons.business_center_rounded),
                   label: 'Employés',
                 ),
+                BottomNavigationBarItem(
+                  icon: NotificationBadge(
+                    count: appProvider.unreadMessagesCount,
+                    showBadge: appProvider.hasUnreadNotifications,
+                    child: const Icon(Icons.message_rounded),
+                  ),
+                  label: 'Messages',
+                ),
                 const BottomNavigationBarItem(
                   icon: Icon(Icons.person_rounded),
                   label: 'Profil',
@@ -157,6 +165,14 @@ class MainPage extends StatelessWidget {
                   ),
                   label: 'Social',
                 ),
+                BottomNavigationBarItem(
+                  icon: NotificationBadge(
+                    count: appProvider.unreadMessagesCount,
+                    showBadge: appProvider.hasUnreadNotifications,
+                    child: const Icon(Icons.message_rounded),
+                  ),
+                  label: 'Messages',
+                ),
                 const BottomNavigationBarItem(
                   icon: Icon(Icons.person_rounded),
                   label: 'Profil',
@@ -167,7 +183,7 @@ class MainPage extends StatelessWidget {
     );
   }
 
-  void _showCreateDialog(BuildContext context) {
+  void _showCreateDialog(BuildContext context, bool isAdmin) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     
@@ -205,79 +221,81 @@ class MainPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildCreateOption(
-                  context,
-                  icon: Icons.edit_rounded,
-                  label: 'Publication',
-                  color: themeProvider.primaryColor,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CreatePublicationPage(),
-                      ),
-                    ).then((result) {
-                      if (result == true && context.mounted) {
-                        // Rafraîchir la liste des publications si nécessaire
-                        final appProvider = Provider.of<AppProvider>(context, listen: false);
-                        appProvider.setCurrentIndex(1); // Rediriger vers Social
-                      }
-                    });
-                  },
-                ),
-                _buildCreateOption(
-                  context,
-                  icon: Icons.person_add_rounded,
-                  label: 'Employé',
-                  color: themeProvider.secondaryColor,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CreateEmployeePage(),
-                      ),
-                    ).then((result) {
-                      if (result == true && context.mounted) {
-                        // Rafraîchir la liste des employés
-                        final appProvider = Provider.of<AppProvider>(context, listen: false);
-                        appProvider.setCurrentIndex(2); // Rediriger vers Employees
-                      }
-                    });
-                  },
-                ),
-                _buildCreateOption(
-                  context,
-                  icon: Icons.location_on_rounded,
-                  label: 'Marqueur',
-                  color: themeProvider.accentColor,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CreateMarkerPage(),
-                      ),
-                    ).then((result) {
-                      if (result == true && context.mounted) {
-                        // Afficher un message de succès
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Marqueur créé avec succès !'),
-                            backgroundColor: Color(0xFF25D366),
-                          ),
-                        );
-                      }
-                    });
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+            if (isAdmin) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildCreateOption(
+                    context,
+                    icon: Icons.edit_rounded,
+                    label: 'Publication',
+                    color: themeProvider.primaryColor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CreatePublicationPage(),
+                        ),
+                      ).then((result) {
+                        if (result == true && context.mounted) {
+                          // Rafraîchir la liste des publications si nécessaire
+                          final appProvider = Provider.of<AppProvider>(context, listen: false);
+                          appProvider.setCurrentIndex(1); // Rediriger vers Social
+                        }
+                      });
+                    },
+                  ),
+                  _buildCreateOption(
+                    context,
+                    icon: Icons.person_add_rounded,
+                    label: 'Employé',
+                    color: themeProvider.secondaryColor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CreateEmployeePage(),
+                        ),
+                      ).then((result) {
+                        if (result == true && context.mounted) {
+                          // Rafraîchir la liste des employés
+                          final appProvider = Provider.of<AppProvider>(context, listen: false);
+                          appProvider.setCurrentIndex(2); // Rediriger vers Employees
+                        }
+                      });
+                    },
+                  ),
+                  _buildCreateOption(
+                    context,
+                    icon: Icons.location_on_rounded,
+                    label: 'Marqueur',
+                    color: themeProvider.accentColor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CreateMarkerPage(),
+                        ),
+                      ).then((result) {
+                        if (result == true && context.mounted) {
+                          // Afficher un message de succès
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Marqueur créé avec succès !'),
+                              backgroundColor: Color(0xFF25D366),
+                            ),
+                          );
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -292,6 +310,21 @@ class MainPage extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const ChatGPTPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildCreateOption(
+                  context,
+                  icon: Icons.message_rounded,
+                  label: 'Messages',
+                  color: themeProvider.secondaryColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PrivateChatPage(),
                       ),
                     );
                   },
