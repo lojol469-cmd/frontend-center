@@ -39,12 +39,14 @@ class ApiService {
 
   // Getter pour l'URL de base
   static String get baseUrl {
+    // ✅ PRIORITÉ ABSOLUE: Mode production = URL Render uniquement
+    if (ServerConfig.isProduction) {
+      developer.log('🌐 PRODUCTION MODE: Forçant l\'utilisation de ${ServerConfig.productionUrl}', name: 'ApiService');
+      return ServerConfig.productionUrl;
+    }
+
+    // Mode développement: utiliser l'URL détectée ou par défaut
     if (_baseUrl == null) {
-      // ✅ En production, toujours utiliser Render
-      if (ServerConfig.isProduction) {
-        return ServerConfig.productionUrl;
-      }
-      // En développement, URL par défaut
       return ServerConfig.buildUrl(_possibleIPs[0]);
     }
     return _baseUrl!;
@@ -96,18 +98,22 @@ class ApiService {
 
   // Méthodes de détection automatique d'IP
   static Future<void> initialize() async {
-    if (_isInitialized) return;
+    if (_isInitialized) {
+      developer.log('ℹ️ ApiService déjà initialisé avec URL: $_baseUrl', name: 'ApiService');
+      return;
+    }
     
     // ✅ MODE PRODUCTION: Utiliser directement l'URL Render
     if (ServerConfig.isProduction) {
       _baseUrl = ServerConfig.productionUrl;
       _isInitialized = true;
-      developer.log('🌐 Production Mode - URL: $_baseUrl', name: 'ApiService');
+      developer.log('🌐 PRODUCTION MODE FORCÉ - URL: $_baseUrl', name: 'ApiService');
+      developer.log('📍 Configuration: isProduction=${ServerConfig.isProduction}, productionUrl=${ServerConfig.productionUrl}', name: 'ApiService');
       return;
     }
     
     // MODE DÉVELOPPEMENT: Détection automatique
-    developer.log('🔍 API Service - Détection automatique du serveur...', name: 'ApiService');
+    developer.log('🔍 MODE DÉVELOPPEMENT - Détection automatique du serveur...', name: 'ApiService');
     developer.log('📡 Test de ${_possibleIPs.length} adresses IP', name: 'ApiService');
     
     // Essayer chaque IP dans l'ordre
@@ -199,12 +205,6 @@ class ApiService {
     _baseUrl = null;
     _isInitialized = false;
     developer.log('🔄 API Service - reset effectué', name: 'ApiService');
-  }
-
-  static void useDefaultUrl() {
-    _baseUrl = 'http://${ServerConfig.serverIPs.first}:${ServerConfig.serverPort}';
-    _isInitialized = true;
-    developer.log('✅ API Service - URL par défaut utilisée: $_baseUrl', name: 'ApiService');
   }
 
   // Méthode privée pour assurer l'initialisation
