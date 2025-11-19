@@ -13,6 +13,7 @@ class MediaPlayer extends StatefulWidget {
   final bool loop;
   final bool showControls;
   final double aspectRatio;
+  final BoxFit videoFit;
   final VoidCallback? onFinished;
   final VoidCallback? onError;
 
@@ -24,6 +25,7 @@ class MediaPlayer extends StatefulWidget {
     this.loop = false,
     this.showControls = true,
     this.aspectRatio = 16 / 9,
+    this.videoFit = BoxFit.cover,
     this.onFinished,
     this.onError,
   });
@@ -372,11 +374,15 @@ class _MediaPlayerState extends State<MediaPlayer> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Video
-            Center(
-              child: AspectRatio(
-                aspectRatio: _controller!.value.aspectRatio,
-                child: VideoPlayer(_controller!),
+            // Video avec FittedBox pour éviter le stretching
+            SizedBox.expand(
+              child: FittedBox(
+                fit: widget.videoFit,
+                child: SizedBox(
+                  width: _controller!.value.size.width,
+                  height: _controller!.value.size.height,
+                  child: VideoPlayer(_controller!),
+                ),
               ),
             ),
 

@@ -1034,7 +1034,7 @@ class _StoryVideoPlayerState extends State<_StoryVideoPlayer> {
       autoPlay: true,
       loop: false,
       showControls: false,
-      aspectRatio: 9 / 16,
+      videoFit: BoxFit.cover,
       onFinished: _handleFinished,
       onError: _handleError,
     );
