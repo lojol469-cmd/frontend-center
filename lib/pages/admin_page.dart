@@ -432,6 +432,7 @@ class _AdminPageState extends State<AdminPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header fixe en haut
           Row(
             children: [
               Container(
@@ -447,57 +448,92 @@ class _AdminPageState extends State<AdminPage> {
                 ),
               ),
               const SizedBox(width: 16),
-              Text(
-                'Gestion des Niveaux d\'Accès',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Gestion des Niveaux d\'Accès',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          // Explication des niveaux
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
-                width: 1,
-              ),
+          // Contenu scrollable
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.6, // Limite la hauteur à 60% de l'écran
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Niveaux d\'accès disponibles :',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Explication des niveaux
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Niveaux d\'accès disponibles :',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildLevelInfo(levelBasic, 'Basique', 'Accès limité aux fonctionnalités de base'),
+                        const SizedBox(height: 8),
+                        _buildLevelInfo(levelChatUsers, 'Chat Utilisateurs', 'Accès au chat privé avec liste de tous les utilisateurs'),
+                        const SizedBox(height: 8),
+                        _buildLevelInfo(levelAiChat, 'Chat IA', 'Accès au chat IA et à toutes les fonctionnalités'),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _buildLevelInfo(levelBasic, 'Basique', 'Accès limité aux fonctionnalités de base'),
-                const SizedBox(height: 8),
-                _buildLevelInfo(levelChatUsers, 'Chat Utilisateurs', 'Accès au chat privé avec liste de tous les utilisateurs'),
-                const SizedBox(height: 8),
-                _buildLevelInfo(levelAiChat, 'Chat IA', 'Accès au chat IA et à toutes les fonctionnalités'),
-              ],
+                  const SizedBox(height: 20),
+                  // Liste des utilisateurs
+                  if (_users.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Text(
+                          'Aucun utilisateur',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                    )
+                  else
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Utilisateurs (${_users.length})',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ..._users.map((user) => _buildUserLevelItem(context, user, appProvider)),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 20),
-          if (_users.isEmpty)
-            const Center(
-              child: Text(
-                'Aucun utilisateur',
-                style: TextStyle(color: Colors.white70),
-              ),
-            )
-          else
-            ..._users.map((user) => _buildUserLevelItem(context, user, appProvider)),
         ],
       ),
     );

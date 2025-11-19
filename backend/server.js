@@ -3337,6 +3337,22 @@ app.put('/api/users/:id/status', verifyToken, verifyCanManageUsers, async (req, 
   res.json({ message: 'Statut mis à jour', user });
 });
 
+app.put('/api/users/:id/access-level', verifyToken, verifyCanManageUsers, async (req, res) => {
+  const { accessLevel } = req.body;
+  if (![0, 1, 2].includes(accessLevel)) return res.status(400).json({ message: 'Niveau d\'accès invalide' });
+
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+
+  const mainAdmin = ['nyundumathryme@gmail', 'nyundumathryme@gmail.com'].includes(user.email.toLowerCase());
+  if (mainAdmin) return res.status(403).json({ message: 'Impossible de modifier l\'admin principal' });
+
+  user.accessLevel = accessLevel;
+  await user.save();
+
+  res.json({ message: 'Niveau d\'accès mis à jour', user });
+});
+
 app.delete('/api/users/:id', verifyToken, verifyCanManageUsers, async (req, res) => {
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
