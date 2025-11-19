@@ -4,7 +4,6 @@ import '../main.dart';
 import '../components/futuristic_card.dart';
 import '../components/gradient_button.dart';
 import '../components/image_background.dart';
-import '../utils/background_image_manager.dart';
 import '../api_service.dart';
 
 class AdminPage extends StatefulWidget {
@@ -16,7 +15,6 @@ class AdminPage extends StatefulWidget {
 
 class _AdminPageState extends State<AdminPage> {
   late String _selectedImage;
-  final BackgroundImageManager _imageManager = BackgroundImageManager();
   bool _isLoadingStats = false;
   bool _isLoadingUsers = false;
   bool _isLoadingEmployees = false;
@@ -24,6 +22,45 @@ class _AdminPageState extends State<AdminPage> {
   List<dynamic> _users = [];
   List<dynamic> _employees = [];
   String? _error;
+  bool _isDisposed = false;
+
+  // Niveaux d'accès
+  static const int levelBasic = 0;      // Niveau de base - accès limité
+  static const int levelChatUsers = 1; // Niveau 1 - accès chat privé avec liste utilisateurs
+  static const int levelAiChat = 2;    // Niveau 2 - accès chat IA
+
+  String _getLevelName(int level) {
+    switch (level) {
+      case levelBasic:
+        return 'Basique';
+      case levelChatUsers:
+        return 'Chat Utilisateurs';
+      case levelAiChat:
+        return 'Chat IA';
+      default:
+        return 'Inconnu';
+    }
+  }
+
+  Color _getLevelColor(int level) {
+    switch (level) {
+      case levelBasic:
+        return Colors.grey;
+      case levelChatUsers:
+        return Colors.blue;
+      case levelAiChat:
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedImage = 'assets/images/aquatic_background.jpg';
+    _loadAdminData();
+  }
 
   // Helper pour transformer les URLs relatives en URLs complètes
   String _getFullUrl(String? url) {
@@ -42,10 +79,9 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _selectedImage = _imageManager.getImageForPage('admin');
-    _loadAdminData();
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 
   Future<void> _loadAdminData() async {
@@ -54,6 +90,8 @@ class _AdminPageState extends State<AdminPage> {
       debugPrint('⏳ Chargement déjà en cours, ignoré');
       return;
     }
+
+    if (_isDisposed) return;
 
     if (mounted) {
       setState(() {
@@ -69,7 +107,7 @@ class _AdminPageState extends State<AdminPage> {
 
     if (token == null) {
       debugPrint('⚠️ Token manquant');
-      if (mounted) {
+      if (!_isDisposed && mounted) {
         setState(() {
           _error = 'Token manquant';
           _isLoadingStats = false;
@@ -83,44 +121,62 @@ class _AdminPageState extends State<AdminPage> {
     // Charger les statistiques
     try {
       final stats = await ApiService.getAdminStats(token);
-      setState(() {
-        _stats = stats;
-        _isLoadingStats = false;
-      });
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _stats = stats;
+          _isLoadingStats = false;
+        });
+      }
     } catch (e) {
       debugPrint('Erreur chargement stats: $e');
-      setState(() {
-        _error = 'Erreur stats: $e';
-        _isLoadingStats = false;
-      });
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _error = 'Erreur stats: $e';
+          _isLoadingStats = false;
+        });
+      }
     }
+
+    // Arrêter si le widget a été disposé
+    if (_isDisposed) return;
 
     // Charger les utilisateurs
     try {
       final usersData = await ApiService.getUsers(token);
-      setState(() {
-        _users = usersData['users'] ?? [];
-        _isLoadingUsers = false;
-      });
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _users = usersData['users'] ?? [];
+          _isLoadingUsers = false;
+        });
+      }
     } catch (e) {
       debugPrint('Erreur chargement users: $e');
-      setState(() {
-        _isLoadingUsers = false;
-      });
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _isLoadingUsers = false;
+        });
+      }
     }
+
+    // Arrêter si le widget a été disposé
+    if (_isDisposed) return;
 
     // Charger les employés
     try {
       final employeesData = await ApiService.getEmployees(token);
-      setState(() {
-        _employees = employeesData['employees'] ?? [];
-        _isLoadingEmployees = false;
-      });
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _employees = employeesData['employees'] ?? [];
+          _isLoadingEmployees = false;
+        });
+      }
     } catch (e) {
       debugPrint('Erreur chargement employees: $e');
-      setState(() {
-        _isLoadingEmployees = false;
-      });
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _isLoadingEmployees = false;
+        });
+      }
     }
   }
 
@@ -167,6 +223,8 @@ class _AdminPageState extends State<AdminPage> {
                 _buildAdminStats(context, appProvider),
                 const SizedBox(height: 24),
                 _buildUserManagement(context, appProvider),
+                const SizedBox(height: 24),
+                _buildAccessLevelManagement(context, appProvider),
                 const SizedBox(height: 24),
                 _buildEmployeeManagement(context, appProvider),
                 const SizedBox(height: 24),
@@ -362,6 +420,320 @@ class _AdminPageState extends State<AdminPage> {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.7),
               fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccessLevelManagement(BuildContext context, AppProvider appProvider) {
+    return FuturisticCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFA500).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.security_rounded,
+                  color: Color(0xFFFFA500),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'Gestion des Niveaux d\'Accès',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Explication des niveaux
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Niveaux d\'accès disponibles :',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildLevelInfo(levelBasic, 'Basique', 'Accès limité aux fonctionnalités de base'),
+                const SizedBox(height: 8),
+                _buildLevelInfo(levelChatUsers, 'Chat Utilisateurs', 'Accès au chat privé avec liste de tous les utilisateurs'),
+                const SizedBox(height: 8),
+                _buildLevelInfo(levelAiChat, 'Chat IA', 'Accès au chat IA et à toutes les fonctionnalités'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (_users.isEmpty)
+            const Center(
+              child: Text(
+                'Aucun utilisateur',
+                style: TextStyle(color: Colors.white70),
+              ),
+            )
+          else
+            ..._users.map((user) => _buildUserLevelItem(context, user, appProvider)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLevelInfo(int level, String name, String description) {
+    return Row(
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            color: _getLevelColor(level),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              level.toString(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                description,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserLevelItem(BuildContext context, dynamic user, AppProvider appProvider) {
+    final String userId = user['_id'] ?? user['id'] ?? '';
+    final String name = user['name'] ?? 'Sans nom';
+    final String email = user['email'] ?? '';
+    final int currentLevel = user['accessLevel'] ?? levelBasic;
+    final String rawProfileImage = user['profileImage'] ?? '';
+    final String profileImage = _getFullUrl(rawProfileImage);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _getLevelColor(currentLevel).withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: Colors.grey[300],
+            child: profileImage.isNotEmpty
+                ? ClipOval(
+                    child: Image.network(
+                      profileImage,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        debugPrint('❌ Error loading user image: $error');
+                        return const Icon(Icons.person, color: Colors.grey);
+                      },
+                    ),
+                  )
+                : const Icon(Icons.person, color: Colors.grey),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  email,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getLevelColor(currentLevel).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Niveau $currentLevel: ${_getLevelName(currentLevel)}',
+                    style: TextStyle(
+                      color: _getLevelColor(currentLevel),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton<int>(
+            onSelected: (level) => _handleLevelChange(context, userId, level, appProvider),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: levelBasic,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: _getLevelColor(levelBasic),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '0',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Basique'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: levelChatUsers,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: _getLevelColor(levelChatUsers),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '1',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Chat Utilisateurs'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: levelAiChat,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: _getLevelColor(levelAiChat),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '2',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Chat IA'),
+                  ],
+                ),
+              ),
+            ],
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _getLevelColor(currentLevel).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.edit_rounded,
+                color: _getLevelColor(currentLevel),
+                size: 20,
+              ),
             ),
           ),
         ],
@@ -812,6 +1184,30 @@ class _AdminPageState extends State<AdminPage> {
         return Colors.red;
       default:
         return Colors.grey;
+    }
+  }
+
+  void _handleLevelChange(BuildContext context, String userId, int newLevel, AppProvider appProvider) async {
+    final token = appProvider.accessToken;
+    if (token == null) {
+      if (!context.mounted) return;
+      _showMessage(context, 'Token manquant');
+      return;
+    }
+
+    try {
+      // Appeler l'API pour mettre à jour le niveau d'accès
+      await ApiService.updateUserAccessLevel(token, userId, newLevel);
+      if (!context.mounted) return;
+
+      final levelName = _getLevelName(newLevel);
+      _showMessage(context, 'Niveau d\'accès mis à jour: $levelName');
+
+      // Recharger les données pour refléter les changements
+      _loadAdminData();
+    } catch (e) {
+      if (!context.mounted) return;
+      _showMessage(context, 'Erreur lors de la mise à jour du niveau: $e');
     }
   }
 

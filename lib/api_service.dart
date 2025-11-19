@@ -2028,6 +2028,32 @@ class ApiService {
     }
   }
 
+  // Changer le niveau d'accès d'un utilisateur
+  static Future<Map<String, dynamic>> updateUserAccessLevel(
+    String token,
+    String userId,
+    int accessLevel,
+  ) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl$apiPrefix/users/$userId/access-level'),
+        headers: _authHeaders(token),
+        body: json.encode({'accessLevel': accessLevel}),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de mise à jour du niveau d\'accès');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
   // Supprimer un utilisateur
   static Future<Map<String, dynamic>> deleteUser(String token, String userId) async {
     await _ensureInitialized();

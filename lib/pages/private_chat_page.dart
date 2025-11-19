@@ -192,21 +192,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
             ),
           ),
         ),
-        leading: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-          ),
-          onPressed: () {
-            if (!_isDisposed && mounted) {
-              Navigator.of(context).pop();
-            }
-          },
-        ),
         title: const Text(
           'Messages privés',
           style: TextStyle(
@@ -227,10 +212,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
             ),
             onPressed: () async {
               if (_isDisposed) return;
-              setState(() {
-                _isLoadingUsers = true;
-                _isLoadingConversations = true;
-              });
+              if (mounted) {
+                setState(() {
+                  _isLoadingUsers = true;
+                  _isLoadingConversations = true;
+                });
+              }
               await Future.wait([
                 _loadUsers(),
                 _loadConversations(),
@@ -321,6 +308,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with TickerProviderSt
                     )
                   : RefreshIndicator(
                       onRefresh: () async {
+                        if (_isDisposed) return;
                         await Future.wait([
                           _loadUsers(),
                           _loadConversations(),
