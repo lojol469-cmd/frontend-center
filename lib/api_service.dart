@@ -2035,21 +2035,35 @@ class ApiService {
     int accessLevel,
   ) async {
     await _ensureInitialized();
+    developer.log('🔄 [API] updateUserAccessLevel - Début', name: 'ApiService');
+    developer.log('   UserId: $userId', name: 'ApiService');
+    developer.log('   AccessLevel: $accessLevel', name: 'ApiService');
+    developer.log('   BaseUrl: $baseUrl', name: 'ApiService');
+
     try {
+      final url = '$baseUrl$apiPrefix/users/$userId/access-level';
+      developer.log('📡 [API] URL: $url', name: 'ApiService');
+
       final response = await http.put(
-        Uri.parse('$baseUrl$apiPrefix/users/$userId/access-level'),
+        Uri.parse(url),
         headers: _authHeaders(token),
         body: json.encode({'accessLevel': accessLevel}),
       );
 
+      developer.log('📡 [API] Status Code: ${response.statusCode}', name: 'ApiService');
+      developer.log('📡 [API] Response Body: ${response.body}', name: 'ApiService');
+
       final data = json.decode(response.body);
 
       if (response.statusCode == 200) {
+        developer.log('✅ [API] updateUserAccessLevel - Succès', name: 'ApiService');
         return data;
       } else {
+        developer.log('❌ [API] updateUserAccessLevel - Erreur ${response.statusCode}: ${data['message']}', name: 'ApiService');
         throw Exception(data['message'] ?? 'Erreur de mise à jour du niveau d\'accès');
       }
     } catch (e) {
+      developer.log('❌ [API] updateUserAccessLevel - Exception: $e', name: 'ApiService');
       throw Exception('Erreur de connexion: $e');
     }
   }

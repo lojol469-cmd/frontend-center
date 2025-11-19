@@ -1224,25 +1224,48 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   void _handleLevelChange(BuildContext context, String userId, int newLevel, AppProvider appProvider) async {
+    debugPrint('🔄 [LEVEL_CHANGE] Début du changement de niveau');
+    debugPrint('   UserId: $userId');
+    debugPrint('   NewLevel: $newLevel');
+
     final token = appProvider.accessToken;
     if (token == null) {
+      debugPrint('❌ [LEVEL_CHANGE] Token manquant');
       if (!context.mounted) return;
       _showMessage(context, 'Token manquant');
       return;
     }
 
+    debugPrint('✅ [LEVEL_CHANGE] Token présent, appel API...');
+
     try {
       // Appeler l'API pour mettre à jour le niveau d'accès
+      debugPrint('📡 [LEVEL_CHANGE] Appel ApiService.updateUserAccessLevel');
       await ApiService.updateUserAccessLevel(token, userId, newLevel);
-      if (!context.mounted) return;
+      debugPrint('✅ [LEVEL_CHANGE] API appelée avec succès');
+
+      if (!context.mounted) {
+        debugPrint('⚠️ [LEVEL_CHANGE] Context non monté après API');
+        return;
+      }
 
       final levelName = _getLevelName(newLevel);
+      debugPrint('📝 [LEVEL_CHANGE] Niveau mis à jour: $levelName');
       _showMessage(context, 'Niveau d\'accès mis à jour: $levelName');
 
       // Recharger les données pour refléter les changements
+      debugPrint('🔄 [LEVEL_CHANGE] Rechargement des données admin');
       _loadAdminData();
+      debugPrint('✅ [LEVEL_CHANGE] Changement terminé avec succès');
     } catch (e) {
-      if (!context.mounted) return;
+      debugPrint('❌ [LEVEL_CHANGE] Erreur lors de la mise à jour: $e');
+      debugPrint('   Type d\'erreur: ${e.runtimeType}');
+      debugPrint('   Stack trace: ${e.toString()}');
+
+      if (!context.mounted) {
+        debugPrint('⚠️ [LEVEL_CHANGE] Context non monté dans catch');
+        return;
+      }
       _showMessage(context, 'Erreur lors de la mise à jour du niveau: $e');
     }
   }
