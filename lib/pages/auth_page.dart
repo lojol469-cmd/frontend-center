@@ -159,7 +159,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
             colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
           ).createShader(bounds),
           child: Text(
-            'SETRAF',
+            'CENTER',
             style: TextStyle(
               fontSize: 36,
               fontWeight: FontWeight.w900,
