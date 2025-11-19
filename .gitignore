@@ -139,6 +139,16 @@ assets/videos/aquarium_15.mp4
 videos/
 
 # =====================================
+# 📱 APPLICATION RELEASES (APK, IPA, etc.)
+# =====================================
+# Exclure tous les fichiers APK et autres binaires de release
+*.apk
+*.ipa
+*.aab
+releases/
+build/app/outputs/
+
+# =====================================
 # 🧠 SWIFTPM / DIVERS
 # =====================================
 .build/
