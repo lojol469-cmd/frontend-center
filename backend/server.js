@@ -511,7 +511,7 @@ const verifyToken = (req, res, next) => {
   console.log('Token reçu (premiers 20 caractères):', token.substring(0, 20) + '...');
   console.log('JWT_SECRET défini:', !!process.env.JWT_SECRET);
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
     if (err) {
       console.log('❌ Erreur JWT:', err.message);
       console.log('Type erreur:', err.name);
@@ -523,9 +523,29 @@ const verifyToken = (req, res, next) => {
       }
       return res.status(403).json({ message: 'Token invalide' });
     }
+    
     console.log('✅ Token valide pour userId:', user.userId, 'email:', user.email);
-    req.user = user;
-    next();
+    
+    // Vérifier le statut de l'utilisateur
+    try {
+      const dbUser = await User.findById(user.userId);
+      if (!dbUser) {
+        console.log('❌ Utilisateur non trouvé en base');
+        return res.status(401).json({ message: 'Utilisateur non trouvé' });
+      }
+      
+      if (dbUser.status === 'blocked') {
+        console.log('❌ Utilisateur bloqué:', user.email);
+        return res.status(403).json({ message: 'Accès refusé - Compte désactivé' });
+      }
+      
+      console.log('✅ Statut utilisateur valide:', dbUser.status);
+      req.user = user;
+      next();
+    } catch (dbErr) {
+      console.log('❌ Erreur vérification statut utilisateur:', dbErr.message);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
   });
 };
 
@@ -627,6 +647,12 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     return res.status(400).json({ message: 'Utilisateur non trouvé' });
   }
 
+  // Vérifier le statut de l'utilisateur
+  if (user.status === 'blocked') {
+    console.log('❌ Utilisateur bloqué:', email);
+    return res.status(403).json({ message: 'Accès refusé - Compte désactivé' });
+  }
+
   console.log('OTP stocké:', user.otp);
   console.log('OTP expire à:', user.otpExpires);
   console.log('Date actuelle:', new Date());
@@ -695,6 +721,12 @@ app.post('/api/auth/refresh-token', (req, res) => {
       return res.status(404).json({ message: 'Utilisateur non trouvé' });
     }
 
+    // Vérifier le statut de l'utilisateur
+    if (user.status === 'blocked') {
+      console.log('❌ Utilisateur bloqué:', user.email);
+      return res.status(403).json({ message: 'Accès refusé - Compte désactivé' });
+    }
+
     // Token valide pendant 7 jours
     const newAccessToken = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
     console.log('✅ Nouveau access token généré (premiers 30 car):', newAccessToken.substring(0, 30) + '...');
@@ -711,6 +743,12 @@ app.post('/api/auth/admin-login', async (req, res) => {
     
     if (!user) {
       return res.status(400).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    // Vérifier le statut de l'utilisateur
+    if (user.status === 'blocked') {
+      console.log('❌ Utilisateur bloqué:', email);
+      return res.status(403).json({ message: 'Accès refusé - Compte désactivé' });
     }
 
     // Vérifier le mot de passe avec bcrypt
