@@ -189,6 +189,8 @@ class ApiService {
   
   // Vérifier si le serveur est accessible
   static Future<bool> checkConnection() async {
+    await _ensureInitialized(); // ✅ S'assurer que l'ApiService est initialisé
+    
     try {
       final url = '$baseUrl$apiPrefix/server-info';
       debugPrint('🔍 [CHECK] Tentative de connexion à: $url');
