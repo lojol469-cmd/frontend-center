@@ -190,14 +190,24 @@ class ApiService {
   // Vérifier si le serveur est accessible
   static Future<bool> checkConnection() async {
     try {
-      // Utiliser une requête GET sur l'endpoint server-info pour vérifier la connexion
-      final response = await http.get(Uri.parse('$baseUrl$apiPrefix/server-info')).timeout(
-        const Duration(seconds: 5),
+      final url = '$baseUrl$apiPrefix/server-info';
+      developer.log('🔍 [CHECK] Tentative de connexion à: $url', name: 'ApiService');
+
+      final response = await http.get(Uri.parse(url)).timeout(
+        const Duration(seconds: 10), // Augmenté à 10 secondes pour mobile
       );
+
+      developer.log('📡 [CHECK] Status Code: ${response.statusCode}', name: 'ApiService');
+      developer.log('📡 [CHECK] Response Body: ${response.body.substring(0, response.body.length > 100 ? 100 : response.body.length)}', name: 'ApiService');
+
       // Accepter tout code de statut 2xx
-      return response.statusCode >= 200 && response.statusCode < 300;
+      final isConnected = response.statusCode >= 200 && response.statusCode < 300;
+      developer.log('📡 [CHECK] Résultat: $isConnected', name: 'ApiService');
+
+      return isConnected;
     } catch (e) {
-      developer.log('❌ Erreur checkConnection: $e', name: 'ApiService');
+      developer.log('❌ [CHECK] Erreur checkConnection: $e', name: 'ApiService');
+      developer.log('❌ [CHECK] Type d\'erreur: ${e.runtimeType}', name: 'ApiService');
       return false;
     }
   }
