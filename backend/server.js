@@ -3269,10 +3269,10 @@ app.get('/api/users', verifyToken, async (req, res) => {
     console.log('\n=== RÉCUPÉRATION TOUS LES UTILISATEURS ===');
     console.log('User ID:', req.user.userId);
 
-    // Récupérer tous les utilisateurs actifs et admins (sauf l'utilisateur actuel)
+    // Récupérer tous les utilisateurs actifs, admins et bloqués (pour permettre la réactivation)
     const users = await User.find({
       _id: { $ne: req.user.userId }, // Exclure l'utilisateur actuel
-      status: { $in: ['active', 'admin'] }
+      status: { $in: ['active', 'admin', 'blocked'] }
     })
     .select('name email profileImage status accessLevel')
     .sort({ name: 1 });

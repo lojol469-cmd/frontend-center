@@ -30,27 +30,37 @@ class _AdminPageState extends State<AdminPage> {
   static const int levelAiChat = 2;    // Niveau 2 - accès chat IA
 
   String _getLevelName(int level) {
+    debugPrint('🔍 [LEVEL_NAME] Converting level $level to name');
     switch (level) {
       case levelBasic:
+        debugPrint('🔍 [LEVEL_NAME] Level $level -> Basique');
         return 'Basique';
       case levelChatUsers:
+        debugPrint('🔍 [LEVEL_NAME] Level $level -> Chat Utilisateurs');
         return 'Chat Utilisateurs';
       case levelAiChat:
+        debugPrint('🔍 [LEVEL_NAME] Level $level -> Chat IA');
         return 'Chat IA';
       default:
+        debugPrint('🔍 [LEVEL_NAME] Level $level -> Inconnu (defaulting to Basique)');
         return 'Inconnu';
     }
   }
 
   Color _getLevelColor(int level) {
+    debugPrint('🎨 [LEVEL_COLOR] Converting level $level to color');
     switch (level) {
       case levelBasic:
+        debugPrint('🎨 [LEVEL_COLOR] Level $level -> Grey');
         return Colors.grey;
       case levelChatUsers:
+        debugPrint('🎨 [LEVEL_COLOR] Level $level -> Blue');
         return Colors.blue;
       case levelAiChat:
+        debugPrint('🎨 [LEVEL_COLOR] Level $level -> Purple');
         return Colors.purple;
       default:
+        debugPrint('🎨 [LEVEL_COLOR] Level $level -> Grey (default)');
         return Colors.grey;
     }
   }
@@ -601,6 +611,13 @@ class _AdminPageState extends State<AdminPage> {
     final String rawProfileImage = user['profileImage'] ?? '';
     final String profileImage = _getFullUrl(rawProfileImage);
 
+    // Logs détaillés pour le débogage
+    debugPrint('🎯 [DISPLAY] Construction widget pour user: $name (ID: $userId)');
+    debugPrint('🎯 [DISPLAY] User data complet: $user');
+    debugPrint('🎯 [DISPLAY] Current level from user data: $currentLevel');
+    debugPrint('🎯 [DISPLAY] Level name: ${_getLevelName(currentLevel)}');
+    debugPrint('🎯 [DISPLAY] Level color: ${_getLevelColor(currentLevel)}');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -792,46 +809,124 @@ class _AdminPageState extends State<AdminPage> {
       );
     }
 
-    return FuturisticCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    // Séparer les utilisateurs actifs/admins des utilisateurs bloqués
+    final activeUsers = _users.where((user) => user['status'] != 'blocked').toList();
+    final blockedUsers = _users.where((user) => user['status'] == 'blocked').toList();
+
+    return Column(
+      children: [
+        // Section Utilisateurs Actifs
+        FuturisticCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00D4FF).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.manage_accounts_rounded,
-                  color: Color(0xFF00D4FF),
-                  size: 24,
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00D4FF).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.manage_accounts_rounded,
+                      color: Color(0xFF00D4FF),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Utilisateurs Actifs (${activeUsers.length})',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Text(
-                'Gestion des Utilisateurs',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              const SizedBox(height: 20),
+              if (activeUsers.isEmpty)
+                const Center(
+                  child: Text(
+                    'Aucun utilisateur actif',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                )
+              else
+                ...activeUsers.map((user) => _buildUserItem(context, user, appProvider)),
             ],
           ),
-          const SizedBox(height: 20),
-          if (_users.isEmpty)
-            const Center(
-              child: Text(
-                'Aucun utilisateur',
-                style: TextStyle(color: Colors.white70),
-              ),
-            )
-          else
-            ..._users.map((user) => _buildUserItem(context, user, appProvider)),
-        ],
-      ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // Section Utilisateurs Bloqués (pour réactivation)
+        if (blockedUsers.isNotEmpty)
+          FuturisticCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.block_rounded,
+                        color: Colors.red,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Utilisateurs Bloqués (${blockedUsers.length})',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Ces utilisateurs sont bloqués et ne peuvent pas se connecter. Vous pouvez les réactiver en cliquant sur l\'icône d\'action.',
+                          style: TextStyle(
+                            color: Colors.red.withValues(alpha: 0.8),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ...blockedUsers.map((user) => _buildBlockedUserItem(context, user, appProvider)),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -993,6 +1088,169 @@ class _AdminPageState extends State<AdminPage> {
               child: Icon(
                 Icons.more_vert_rounded,
                 color: _getStatusColor(status),
+                size: 20,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBlockedUserItem(BuildContext context, dynamic user, AppProvider appProvider) {
+    final String userId = user['_id'] ?? user['id'] ?? '';
+    final String name = user['name'] ?? 'Sans nom';
+    final String email = user['email'] ?? '';
+    final String rawProfileImage = user['profileImage'] ?? '';
+    final String profileImage = _getFullUrl(rawProfileImage);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.red.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.grey[300],
+                child: profileImage.isNotEmpty
+                    ? ClipOval(
+                        child: Image.network(
+                          profileImage,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            debugPrint('❌ Error loading user image: $error');
+                            return const Icon(Icons.person, color: Colors.grey);
+                          },
+                        ),
+                      )
+                    : const Icon(Icons.person, color: Colors.grey),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      width: 2,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.block,
+                    color: Colors.white,
+                    size: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Text(
+                        'BLOQUÉ',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  email,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) => _handleBlockedUserAction(context, userId, value, appProvider),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'reactivate',
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text('Réactiver'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Supprimer'),
+                  ],
+                ),
+              ),
+            ],
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.more_vert_rounded,
+                color: Colors.red,
                 size: 20,
               ),
             ),
@@ -1317,7 +1575,8 @@ class _AdminPageState extends State<AdminPage> {
       debugPrint('📡 [LEVEL_CHANGE] Appel ApiService.updateUserAccessLevel');
       final result = await ApiService.updateUserAccessLevel(token, userId, newLevel);
       debugPrint('✅ [LEVEL_CHANGE] API appelée avec succès');
-      debugPrint('📊 [LEVEL_CHANGE] Résultat: $result');
+      debugPrint('📊 [LEVEL_CHANGE] Résultat complet: $result');
+      debugPrint('📊 [LEVEL_CHANGE] User dans résultat: ${result['user']}');
 
       if (!context.mounted) {
         debugPrint('⚠️ [LEVEL_CHANGE] Context non monté après API');
@@ -1327,14 +1586,35 @@ class _AdminPageState extends State<AdminPage> {
       final levelName = _getLevelName(newLevel);
       debugPrint('📝 [LEVEL_CHANGE] Niveau mis à jour: $levelName');
 
+      // Vérifier l'état avant la mise à jour
+      final userIndex = _users.indexWhere((user) => user['_id'] == userId || user['id'] == userId);
+      debugPrint('🔍 [LEVEL_CHANGE] Index utilisateur trouvé: $userIndex');
+      if (userIndex != -1) {
+        debugPrint('🔍 [LEVEL_CHANGE] Ancien niveau utilisateur: ${_users[userIndex]['accessLevel']}');
+        debugPrint('🔍 [LEVEL_CHANGE] Ancien user complet: ${_users[userIndex]}');
+      }
+
       // Mettre à jour localement la liste des utilisateurs avec les données confirmées par le serveur
       setState(() {
         final userIndex = _users.indexWhere((user) => user['_id'] == userId || user['id'] == userId);
         if (userIndex != -1 && result['user'] != null) {
+          debugPrint('🔄 [LEVEL_CHANGE] Mise à jour de l\'utilisateur à l\'index $userIndex');
+          debugPrint('🔄 [LEVEL_CHANGE] Ancienne valeur: ${_users[userIndex]}');
+          debugPrint('🔄 [LEVEL_CHANGE] Nouvelle valeur: ${result['user']}');
           _users[userIndex] = result['user']; // Utiliser les données confirmées par le serveur
           debugPrint('✅ [LEVEL_CHANGE] État local mis à jour avec les données du serveur pour l\'utilisateur $userId');
+          debugPrint('✅ [LEVEL_CHANGE] Nouveau niveau utilisateur: ${_users[userIndex]['accessLevel']}');
+          debugPrint('✅ [LEVEL_CHANGE] Nouvel user complet: ${_users[userIndex]}');
+        } else {
+          debugPrint('❌ [LEVEL_CHANGE] Impossible de mettre à jour - index: $userIndex, user dans result: ${result['user'] != null}');
         }
       });
+
+      // Vérifier après la mise à jour
+      final updatedUserIndex = _users.indexWhere((user) => user['_id'] == userId || user['id'] == userId);
+      if (updatedUserIndex != -1) {
+        debugPrint('🔍 [LEVEL_CHANGE] Vérification après setState - niveau: ${_users[updatedUserIndex]['accessLevel']}');
+      }
 
       _showMessage(context, 'Niveau d\'accès mis à jour: $levelName');
 
@@ -1375,6 +1655,35 @@ class _AdminPageState extends State<AdminPage> {
           if (!context.mounted) return;
           _showMessage(context, 'Utilisateur désactivé');
           _loadAdminData();
+          break;
+        case 'delete':
+          await ApiService.deleteUser(token, userId);
+          if (!context.mounted) return;
+          _showMessage(context, 'Utilisateur supprimé');
+          _loadAdminData();
+          break;
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      _showMessage(context, 'Erreur: $e');
+    }
+  }
+
+  void _handleBlockedUserAction(BuildContext context, String userId, String action, AppProvider appProvider) async {
+    final token = appProvider.accessToken;
+    if (token == null) {
+      if (!context.mounted) return;
+      _showMessage(context, 'Token manquant');
+      return;
+    }
+
+    try {
+      switch (action) {
+        case 'reactivate':
+          await ApiService.updateUserStatus(token, userId, 'active');
+          if (!context.mounted) return;
+          _showMessage(context, 'Utilisateur réactivé avec succès');
+          _loadAdminData(); // Recharger les données
           break;
         case 'delete':
           await ApiService.deleteUser(token, userId);
