@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# ===========================================
+# 🔍 Pre-commit Hook - Mobile Connection Check
+# Vérifie automatiquement les problèmes de connexion mobile
+# avant chaque commit
+# ===========================================
+
+echo "🔍 Pre-commit Hook: Vérification connexion mobile..."
+
+# Vérifier si les fichiers critiques ont été modifiés
+CHANGED_FILES=$(git diff --cached --name-only)
+
+if echo "$CHANGED_FILES" | grep -qE "(server_config\.dart|api_service\.dart)"; then
+    echo "📝 Fichiers de configuration modifiés, vérification automatique..."
+
+    # Vérifier si Dart est disponible
+    if command -v dart &> /dev/null; then
+        # Exécuter le diagnostic automatique
+        dart run scripts/mobile_connection_fix.dart
+
+        if [ $? -ne 0 ]; then
+            echo "❌ PROBLÈME DÉTECTÉ: Les corrections automatiques ont échoué"
+            echo "🔧 Veuillez corriger manuellement ou utiliser fix_mobile_connection.bat"
+            echo ""
+            echo "Pour ignorer ce hook (déconseillé):"
+            echo "git commit --no-verify -m \"votre message\""
+            exit 1
+        fi
+
+        echo "✅ Configuration validée - Commit autorisé"
+    else
+        echo "⚠️ Dart non trouvé - Vérification manuelle recommandée"
+        echo "📖 Consultez MOBILE_CONNECTION_FIX.md pour les détails"
+    fi
+else
+    echo "✅ Aucun fichier critique modifié - Commit autorisé"
+fi
+
+echo ""
