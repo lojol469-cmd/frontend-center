@@ -1327,23 +1327,18 @@ class _AdminPageState extends State<AdminPage> {
       final levelName = _getLevelName(newLevel);
       debugPrint('📝 [LEVEL_CHANGE] Niveau mis à jour: $levelName');
 
-      // Mettre à jour localement la liste des utilisateurs pour un feedback immédiat
+      // Mettre à jour localement la liste des utilisateurs avec les données confirmées par le serveur
       setState(() {
         final userIndex = _users.indexWhere((user) => user['_id'] == userId || user['id'] == userId);
-        if (userIndex != -1) {
-          _users[userIndex]['accessLevel'] = newLevel;
-          debugPrint('✅ [LEVEL_CHANGE] État local mis à jour pour l\'utilisateur $userId');
+        if (userIndex != -1 && result['user'] != null) {
+          _users[userIndex] = result['user']; // Utiliser les données confirmées par le serveur
+          debugPrint('✅ [LEVEL_CHANGE] État local mis à jour avec les données du serveur pour l\'utilisateur $userId');
         }
       });
 
       _showMessage(context, 'Niveau d\'accès mis à jour: $levelName');
 
-      // Attendre un peu avant de recharger pour éviter les conflits
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Recharger les données pour s'assurer de la cohérence
-      debugPrint('🔄 [LEVEL_CHANGE] Rechargement des données admin');
-      await _loadAdminData();
+      // Pas besoin de rafraîchir les données, l'état local est déjà à jour avec les données confirmées
       debugPrint('✅ [LEVEL_CHANGE] Changement terminé avec succès');
 
     } catch (e) {
