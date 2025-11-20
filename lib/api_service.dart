@@ -190,12 +190,12 @@ class ApiService {
   // Vérifier si le serveur est accessible
   static Future<bool> checkConnection() async {
     try {
-      // Utiliser une requête HEAD simple sur la base URL pour vérifier la connexion
-      final response = await http.head(Uri.parse(baseUrl)).timeout(
+      // Utiliser une requête GET sur l'endpoint server-info pour vérifier la connexion
+      final response = await http.get(Uri.parse('$baseUrl$apiPrefix/server-info')).timeout(
         const Duration(seconds: 5),
       );
-      // Accepter tout code de statut 2xx ou 404 (serveur répond)
-      return response.statusCode >= 200 && response.statusCode < 300 || response.statusCode == 404;
+      // Accepter tout code de statut 2xx
+      return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {
       return false;
     }

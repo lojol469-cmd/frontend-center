@@ -8,13 +8,15 @@ class ServerConfig {
   static const String productionUrl = 'https://center-backend-v9rf.onrender.com';
   
   /// Port du serveur backend Node.js (pour développement local uniquement)
-  static const int serverPort = 5000;
+  static const int serverPort = 8001;
   
   /// Mode de production (true = utilise uniquement Render, false = détection auto)
-  static const bool isProduction = true;
+  static const bool isProduction = false;
   
   /// Liste des adresses IP pour développement local (ignorée en production)
   static const List<String> serverIPs = [
+    // IP du serveur AI backend
+    '192.168.1.84',
     // IP locale pour tests en développement
     '192.168.1.66',
     '192.168.1.98',

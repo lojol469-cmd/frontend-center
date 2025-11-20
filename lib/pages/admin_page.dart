@@ -854,46 +854,97 @@ class _AdminPageState extends State<AdminPage> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.grey[300],
-            child: profileImage.isNotEmpty
-                ? ClipOval(
-                    child: Image.network(
-                      profileImage,
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        debugPrint('❌ Error loading user image: $error');
-                        debugPrint('   URL: $profileImage');
-                        return const Icon(Icons.person, color: Colors.grey);
-                      },
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.grey[300],
+                child: profileImage.isNotEmpty
+                    ? ClipOval(
+                        child: Image.network(
+                          profileImage,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            debugPrint('❌ Error loading user image: $error');
+                            debugPrint('   URL: $profileImage');
+                            return const Icon(Icons.person, color: Colors.grey);
+                          },
+                        ),
+                      )
+                    : const Icon(Icons.person, color: Colors.grey),
+              ),
+              if (status == 'admin')
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF1E1E1E),
+                        width: 2,
+                      ),
                     ),
-                  )
-                : const Icon(Icons.person, color: Colors.grey),
+                    child: const Icon(
+                      Icons.admin_panel_settings,
+                      color: Colors.white,
+                      size: 12,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                    if (status == 'admin') ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.green.withValues(alpha: 0.5),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          'ADMIN',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 Text(
                   email,
@@ -1201,9 +1252,12 @@ class _AdminPageState extends State<AdminPage> {
     switch (status) {
       case 'active':
         return Colors.green;
+      case 'admin':
+        return Colors.green;
       case 'inactive':
         return Colors.orange;
       case 'banned':
+      case 'blocked':
         return Colors.red;
       default:
         return Colors.grey;
@@ -1281,9 +1335,9 @@ class _AdminPageState extends State<AdminPage> {
     try {
       switch (action) {
         case 'activate':
-          await ApiService.updateUserStatus(token, userId, 'active');
+          await ApiService.updateUserStatus(token, userId, 'admin');
           if (!context.mounted) return;
-          _showMessage(context, 'Utilisateur activé');
+          _showMessage(context, 'Utilisateur promu administrateur');
           _loadAdminData(); // Recharger les données
           break;
         case 'deactivate':

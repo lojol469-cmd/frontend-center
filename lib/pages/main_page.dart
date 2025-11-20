@@ -49,45 +49,55 @@ class MainPage extends StatelessWidget {
               const ProfilePage(),
             ];
 
-        return Scaffold(
-          body: IndexedStack(
-            index: appProvider.currentIndex,
-            children: pages,
-          ),
-          floatingActionButton: _buildFloatingActionButton(context, appProvider, isAdmin),
-          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-          bottomNavigationBar: _buildBottomNavigationBar(context, appProvider, isAdmin),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // Déterminer si c'est un petit écran
+            final isSmallScreen = constraints.maxWidth < 360 || constraints.maxHeight < 640;
+            final isVerySmallScreen = constraints.maxWidth < 320 || constraints.maxHeight < 568;
+            
+            return Scaffold(
+              body: IndexedStack(
+                index: appProvider.currentIndex,
+                children: pages,
+              ),
+              floatingActionButton: _buildFloatingActionButton(context, appProvider, isAdmin, isSmallScreen, isVerySmallScreen),
+              floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+              bottomNavigationBar: _buildBottomNavigationBar(context, appProvider, isAdmin, isSmallScreen, isVerySmallScreen),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildFloatingActionButton(BuildContext context, AppProvider appProvider, bool isAdmin) {
+  Widget _buildFloatingActionButton(BuildContext context, AppProvider appProvider, bool isAdmin, bool isSmallScreen, bool isVerySmallScreen) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 8),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + (isVerySmallScreen ? 4 : isSmallScreen ? 6 : 8)),
       child: Container(
+        width: isVerySmallScreen ? 48 : isSmallScreen ? 52 : 56,
+        height: isVerySmallScreen ? 48 : isSmallScreen ? 52 : 56,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: themeProvider.gradient,
         ),
         child: FloatingActionButton(
           heroTag: 'main_add',
-          onPressed: () => _showCreateDialog(context, isAdmin),
+          onPressed: () => _showCreateDialog(context, isAdmin, isSmallScreen, isVerySmallScreen),
           backgroundColor: Colors.transparent,
           elevation: 0,
           child: Icon(
             Icons.add,
             color: themeProvider.isDarkMode ? Colors.white : Colors.black,
-            size: 32,
+            size: isVerySmallScreen ? 24 : isSmallScreen ? 28 : 32,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildBottomNavigationBar(BuildContext context, AppProvider appProvider, bool isAdmin) {
+  Widget _buildBottomNavigationBar(BuildContext context, AppProvider appProvider, bool isAdmin, bool isSmallScreen, bool isVerySmallScreen) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     
     return Container(
@@ -114,9 +124,9 @@ class MainPage extends StatelessWidget {
             appProvider.setCurrentIndex(index);
           },
           elevation: 0,
-          selectedFontSize: 12,
-          unselectedFontSize: 12,
-          iconSize: 28,
+          selectedFontSize: isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12,
+          unselectedFontSize: isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12,
+          iconSize: isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28,
           items: isAdmin 
             ? [
                 const BottomNavigationBarItem(
@@ -183,7 +193,7 @@ class MainPage extends StatelessWidget {
     );
   }
 
-  void _showCreateDialog(BuildContext context, bool isAdmin) {
+  void _showCreateDialog(BuildContext context, bool isAdmin, bool isSmallScreen, bool isVerySmallScreen) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     
@@ -192,10 +202,10 @@ class MainPage extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 24,
-          bottom: 24 + bottomPadding, // Ajouter le padding du système
+          left: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24,
+          right: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24,
+          top: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24,
+          bottom: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24 + bottomPadding,
         ),
         decoration: BoxDecoration(
           color: themeProvider.surfaceColor,
@@ -205,22 +215,23 @@ class MainPage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 50,
-              height: 5,
+              width: isVerySmallScreen ? 40 : isSmallScreen ? 45 : 50,
+              height: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 5,
               decoration: BoxDecoration(
                 color: themeProvider.textSecondaryColor.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
             Text(
               'Créer',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: themeProvider.textColor,
                 fontWeight: FontWeight.bold,
+                fontSize: isVerySmallScreen ? 18 : isSmallScreen ? 20 : 22,
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
             if (isAdmin) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -245,6 +256,8 @@ class MainPage extends StatelessWidget {
                         }
                       });
                     },
+                    isSmallScreen: isSmallScreen,
+                    isVerySmallScreen: isVerySmallScreen,
                   ),
                   _buildCreateOption(
                     context,
@@ -266,6 +279,8 @@ class MainPage extends StatelessWidget {
                         }
                       });
                     },
+                    isSmallScreen: isSmallScreen,
+                    isVerySmallScreen: isVerySmallScreen,
                   ),
                   _buildCreateOption(
                     context,
@@ -291,10 +306,12 @@ class MainPage extends StatelessWidget {
                         }
                       });
                     },
+                    isSmallScreen: isSmallScreen,
+                    isVerySmallScreen: isVerySmallScreen,
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
             ],
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -313,7 +330,10 @@ class MainPage extends StatelessWidget {
                       ),
                     );
                   },
+                  isSmallScreen: isSmallScreen,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
+                SizedBox(width: isVerySmallScreen ? 12 : isSmallScreen ? 16 : 20),
                 _buildCreateOption(
                   context,
                   icon: Icons.message_rounded,
@@ -328,10 +348,12 @@ class MainPage extends StatelessWidget {
                       ),
                     );
                   },
+                  isSmallScreen: isSmallScreen,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
           ],
         ),
       ),
@@ -344,16 +366,19 @@ class MainPage extends StatelessWidget {
     required String label,
     required Color color,
     required VoidCallback onTap,
+    required bool isSmallScreen,
+    required bool isVerySmallScreen,
   }) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        width: isVerySmallScreen ? 70 : isSmallScreen ? 80 : 90,
+        padding: EdgeInsets.all(isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(isVerySmallScreen ? 16 : isSmallScreen ? 18 : 20),
           border: Border.all(
             color: color.withValues(alpha: 0.3),
             width: 1,
@@ -362,7 +387,9 @@ class MainPage extends StatelessWidget {
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              width: isVerySmallScreen ? 32 : isSmallScreen ? 36 : 40,
+              height: isVerySmallScreen ? 32 : isSmallScreen ? 36 : 40,
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
@@ -370,17 +397,18 @@ class MainPage extends StatelessWidget {
               child: Icon(
                 icon,
                 color: themeProvider.isDarkMode ? Colors.white : Colors.black,
-                size: 24,
+                size: isVerySmallScreen ? 16 : isSmallScreen ? 18 : 20,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: isVerySmallScreen ? 6 : isSmallScreen ? 7 : 8),
             Text(
               label,
               style: TextStyle(
                 color: color,
                 fontWeight: FontWeight.w600,
-                fontSize: 12,
+                fontSize: isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),

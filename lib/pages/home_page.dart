@@ -178,11 +178,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 360 || screenHeight < 640;
-    final isVerySmallScreen = screenWidth < 320 || screenHeight < 568;
-
+    
     return Scaffold(
       body: Stack(
         children: [
@@ -197,22 +193,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 bottom: false,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
+                    // Responsive breakpoints
+                    final isSmallScreen = constraints.maxWidth < 360 || constraints.maxHeight < 640;
+                    final isVerySmallScreen = constraints.maxWidth < 320 || constraints.maxHeight < 568;
+                    final isTablet = constraints.maxWidth >= 600;
+                    
                     return CustomScrollView(
                       slivers: [
-                        _buildAppBar(),
+                        _buildAppBar(constraints, isSmallScreen, isVerySmallScreen, isTablet),
                         SliverPadding(
-                          padding: EdgeInsets.all(isVerySmallScreen ? 12 : isSmallScreen ? 16 : 24),
+                          padding: EdgeInsets.all(isVerySmallScreen ? 12 : isSmallScreen ? 16 : isTablet ? 32 : 24),
                           sliver: SliverList(
                             delegate: SliverChildListDelegate([
-                              _buildWelcomeSection(),
-                              SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
-                              _buildStatsSection(),
-                              SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
-                              _buildQuickActions(),
-                              SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24),
-                              _buildRecentPublications(),
+                              _buildWelcomeSection(constraints, isSmallScreen, isVerySmallScreen, isTablet),
+                              SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : isTablet ? 32 : 24),
+                              _buildStatsSection(constraints, isSmallScreen, isVerySmallScreen, isTablet),
+                              SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : isTablet ? 32 : 24),
+                              _buildQuickActions(constraints, isSmallScreen, isVerySmallScreen, isTablet),
+                              SizedBox(height: isVerySmallScreen ? 16 : isSmallScreen ? 20 : isTablet ? 32 : 24),
+                              _buildRecentPublications(constraints, isSmallScreen, isVerySmallScreen, isTablet),
                               // Bottom padding with safe area consideration to prevent overflow
-                              SizedBox(height: max(24.0, MediaQuery.of(context).padding.bottom + 16.0)),
+                              SizedBox(height: max(24.0, MediaQuery.of(context).padding.bottom + (isVerySmallScreen ? 12 : isSmallScreen ? 16 : 16.0))),
                             ]),
                           ),
                         ),
@@ -228,153 +229,160 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             bottom: 0,
             left: 0,
             right: 0,
-            child: Container(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).padding.bottom + 16,
-                left: 24,
-                right: 24,
-                top: 16,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Bouton chat personnel avec design bulle transparente
-                  Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        FloatingActionButton(
-                          heroTag: 'chat_button',
-                          mini: true,
-                          backgroundColor: themeProvider.primaryColor.withValues(alpha: 0.1),
-                          elevation: 4,
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const PrivateChatPage(),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: themeProvider.primaryColor.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: themeProvider.primaryColor.withValues(alpha: 0.2),
-                                width: 1.5,
-                              ),
-                              // Effet bulle de chat
-                              boxShadow: [
-                                BoxShadow(
-                                  color: themeProvider.primaryColor.withValues(alpha: 0.1),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              color: themeProvider.primaryColor,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                        // Petite bulle décorative pour ressembler à une bulle de chat
-                        Positioned(
-                          top: 6,
-                          right: 6,
-                          child: Container(
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: themeProvider.primaryColor.withValues(alpha: 0.4),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isSmallScreen = constraints.maxWidth < 360 || constraints.maxHeight < 640;
+                final isVerySmallScreen = constraints.maxWidth < 320 || constraints.maxHeight < 568;
+                
+                return Container(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).padding.bottom + (isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
+                    left: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24,
+                    right: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24,
+                    top: isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16,
                   ),
-                  // Bouton notifications avec badge
-                  Stack(
-                    clipBehavior: Clip.none,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      FloatingActionButton(
-                        heroTag: 'notifications_button',
-                        mini: true,
-                        backgroundColor: themeProvider.primaryColor.withValues(alpha: 0.1),
-                        elevation: 4,
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const PrivateChatNotificationsPage(),
+                      // Bouton chat personnel avec design bulle transparente
+                      Container(
+                        margin: EdgeInsets.only(right: isVerySmallScreen ? 6 : isSmallScreen ? 7 : 8),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            FloatingActionButton(
+                              heroTag: 'chat_button',
+                              mini: true,
+                              backgroundColor: themeProvider.primaryColor.withValues(alpha: 0.1),
+                              elevation: 4,
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const PrivateChatPage(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: EdgeInsets.all(isVerySmallScreen ? 6 : isSmallScreen ? 7 : 8),
+                                decoration: BoxDecoration(
+                                  color: themeProvider.primaryColor.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12),
+                                  border: Border.all(
+                                    color: themeProvider.primaryColor.withValues(alpha: 0.2),
+                                    width: 1.5,
+                                  ),
+                                  // Effet bulle de chat
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: themeProvider.primaryColor.withValues(alpha: 0.1),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  color: themeProvider.primaryColor,
+                                  size: isVerySmallScreen ? 14 : isSmallScreen ? 16 : 18,
+                                ),
+                              ),
                             ),
-                          ).then((_) {
-                            // Recharger les stats après retour de la page notifications
-                            _loadStats();
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: themeProvider.primaryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: themeProvider.primaryColor,
-                              width: 1,
+                            // Petite bulle décorative pour ressembler à une bulle de chat
+                            Positioned(
+                              top: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 6,
+                              right: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 6,
+                              child: Container(
+                                width: isVerySmallScreen ? 4 : isSmallScreen ? 4.5 : 5,
+                                height: isVerySmallScreen ? 4 : isSmallScreen ? 4.5 : 5,
+                                decoration: BoxDecoration(
+                                  color: themeProvider.primaryColor.withValues(alpha: 0.4),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
                             ),
-                          ),
-                          child: Icon(
-                            Icons.notifications_rounded,
-                            color: themeProvider.primaryColor,
-                            size: 16,
-                          ),
+                          ],
                         ),
                       ),
-                      // Badge avec le nombre de notifications (style moderne)
-                      if (_notificationsCount > 0)
-                        Positioned(
-                          right: 4,
-                          top: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [themeProvider.secondaryColor, themeProvider.accentColor],
+                      // Bouton notifications avec badge
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          FloatingActionButton(
+                            heroTag: 'notifications_button',
+                            mini: true,
+                            backgroundColor: themeProvider.primaryColor.withValues(alpha: 0.1),
+                            elevation: 4,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const PrivateChatNotificationsPage(),
+                                ),
+                              ).then((_) {
+                                // Recharger les stats après retour de la page notifications
+                                _loadStats();
+                              });
+                            },
+                            child: Container(
+                              padding: EdgeInsets.all(isVerySmallScreen ? 5 : isSmallScreen ? 6 : 6),
+                              decoration: BoxDecoration(
+                                color: themeProvider.primaryColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(isVerySmallScreen ? 8 : isSmallScreen ? 9 : 10),
+                                border: Border.all(
+                                  color: themeProvider.primaryColor,
+                                  width: 1,
+                                ),
                               ),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: themeProvider.surfaceColor,
-                                width: 1.5,
+                              child: Icon(
+                                Icons.notifications_rounded,
+                                color: themeProvider.primaryColor,
+                                size: isVerySmallScreen ? 14 : isSmallScreen ? 15 : 16,
                               ),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 16,
-                              minHeight: 16,
-                            ),
-                            child: Text(
-                              _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
-                              style: TextStyle(
-                                color: themeProvider.isDarkMode ? Colors.white : Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                                height: 1.2,
-                              ),
-                              textAlign: TextAlign.center,
                             ),
                           ),
-                        ),
+                          // Badge avec le nombre de notifications (style moderne)
+                          if (_notificationsCount > 0)
+                            Positioned(
+                              right: isVerySmallScreen ? 3 : isSmallScreen ? 3.5 : 4,
+                              top: isVerySmallScreen ? 3 : isSmallScreen ? 3.5 : 4,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isVerySmallScreen ? 3 : isSmallScreen ? 3.5 : 4,
+                                  vertical: isVerySmallScreen ? 1 : isSmallScreen ? 1 : 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [themeProvider.secondaryColor, themeProvider.accentColor],
+                                  ),
+                                  borderRadius: BorderRadius.circular(isVerySmallScreen ? 6 : isSmallScreen ? 7 : 8),
+                                  border: Border.all(
+                                    color: themeProvider.surfaceColor,
+                                    width: isVerySmallScreen ? 1 : isSmallScreen ? 1.2 : 1.5,
+                                  ),
+                                ),
+                                constraints: BoxConstraints(
+                                  minWidth: isVerySmallScreen ? 14 : isSmallScreen ? 16 : 16,
+                                  minHeight: isVerySmallScreen ? 14 : isSmallScreen ? 16 : 16,
+                                ),
+                                child: Text(
+                                  _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
+                                  style: TextStyle(
+                                    color: themeProvider.isDarkMode ? Colors.white : Colors.white,
+                                    fontSize: isVerySmallScreen ? 7.5 : isSmallScreen ? 8 : 9,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.2,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -382,22 +390,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(BoxConstraints constraints, bool isSmallScreen, bool isVerySmallScreen, bool isTablet) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        final screenHeight = MediaQuery.of(context).size.height;
-        final isSmallScreen = screenWidth < 360 || screenHeight < 640;
-        final isVerySmallScreen = screenWidth < 320 || screenHeight < 568;
-
         // Ajuster les tailles pour éviter que les boutons soient trop petits
-        final buttonSize = isVerySmallScreen ? 44.0 : isSmallScreen ? 48.0 : 52.0;
-        final iconSize = isVerySmallScreen ? 22.0 : isSmallScreen ? 24.0 : 26.0;
-        final fontSize = isVerySmallScreen ? 9.5 : isSmallScreen ? 10.5 : 11.0;
-        final spacing = isVerySmallScreen ? 10.0 : isSmallScreen ? 12.0 : 16.0;
+        final buttonSize = isVerySmallScreen ? 40.0 : isSmallScreen ? 44.0 : isTablet ? 56.0 : 48.0;
+        final iconSize = isVerySmallScreen ? 18.0 : isSmallScreen ? 20.0 : isTablet ? 28.0 : 22.0;
+        final fontSize = isVerySmallScreen ? 8.5 : isSmallScreen ? 9.5 : isTablet ? 12.0 : 10.0;
+        final spacing = isVerySmallScreen ? 8.0 : isSmallScreen ? 10.0 : isTablet ? 18.0 : 12.0;
 
         return SliverAppBar(
-          expandedHeight: isVerySmallScreen ? 90 : isSmallScreen ? 105 : 120,
+          expandedHeight: isVerySmallScreen ? 80 : isSmallScreen ? 90 : isTablet ? 130 : 105,
           floating: true,
           pinned: true,
           backgroundColor: Colors.transparent,
@@ -414,8 +417,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 ),
               ),
               padding: EdgeInsets.symmetric(
-                horizontal: isVerySmallScreen ? 12 : isSmallScreen ? 16 : 24,
-                vertical: isVerySmallScreen ? 10 : isSmallScreen ? 12 : 16,
+                horizontal: isVerySmallScreen ? 10 : isSmallScreen ? 14 : isTablet ? 32 : 20,
+                vertical: isVerySmallScreen ? 8 : isSmallScreen ? 10 : isTablet ? 18 : 12,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -444,12 +447,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           // Badge de notification style TikTok/Facebook
                           if (_notificationsCount > 0)
                             Positioned(
-                              right: -4,
-                              top: -4,
+                              right: -3,
+                              top: -3,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 3,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 6,
+                                  vertical: isVerySmallScreen ? 2 : isSmallScreen ? 2.5 : 3,
                                 ),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
@@ -457,21 +460,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12),
                                   border: Border.all(
                                     color: themeProvider.surfaceColor,
-                                    width: 2.5,
+                                    width: isVerySmallScreen ? 2 : isSmallScreen ? 2.2 : 2.5,
                                   ),
                                 ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 22,
-                                  minHeight: 22,
+                                constraints: BoxConstraints(
+                                  minWidth: isVerySmallScreen ? 18 : isSmallScreen ? 20 : 22,
+                                  minHeight: isVerySmallScreen ? 18 : isSmallScreen ? 20 : 22,
                                 ),
                                 child: Text(
                                   _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
                                   style: TextStyle(
                                     color: themeProvider.isDarkMode ? Colors.white : Colors.white,
-                                    fontSize: 11,
+                                    fontSize: isVerySmallScreen ? 9 : isSmallScreen ? 10 : 11,
                                     fontWeight: FontWeight.w900,
                                     height: 1.2,
                                   ),
@@ -540,7 +543,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildWelcomeSection() {
+  Widget _buildWelcomeSection(BoxConstraints constraints, bool isSmallScreen, bool isVerySmallScreen, bool isTablet) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         final user = appProvider.currentUser;
@@ -559,7 +562,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         
         return FuturisticCard(
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(isVerySmallScreen ? 16 : isSmallScreen ? 20 : isTablet ? 32 : 24),
             child: Row(
               children: [
                 Expanded(
@@ -570,37 +573,37 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         'Bonjour,',
                         style: TextStyle(
                           color: Provider.of<ThemeProvider>(context, listen: false).isDarkMode ? Colors.grey[300] : Colors.grey[800],
-                          fontSize: 16,
+                          fontSize: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 18 : 16,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: isVerySmallScreen ? 2 : isSmallScreen ? 3 : 4),
                       ShaderMask(
                         shaderCallback: (bounds) => const LinearGradient(
                           colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
                         ).createShader(bounds),
                         child: Text(
                           userName,
-                          style: const TextStyle(
-                            fontSize: 28,
+                          style: TextStyle(
+                            fontSize: isVerySmallScreen ? 20 : isSmallScreen ? 24 : isTablet ? 36 : 28,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: isVerySmallScreen ? 6 : isSmallScreen ? 7 : 8),
                       Text(
                         'Prêt à conquérir cette journée ?',
                         style: TextStyle(
                           color: Provider.of<ThemeProvider>(context, listen: false).isDarkMode ? Colors.grey[200] : Colors.grey[700],
-                          fontSize: 14,
+                          fontSize: isVerySmallScreen ? 11 : isSmallScreen ? 12 : isTablet ? 16 : 14,
                         ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: isVerySmallScreen ? 60 : isSmallScreen ? 70 : isTablet ? 100 : 80,
+                  height: isVerySmallScreen ? 60 : isSmallScreen ? 70 : isTablet ? 100 : 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: avatarUrl == null
@@ -621,7 +624,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   child: avatarUrl == null
                       ? Icon(
                           Icons.person_rounded,
-                          size: 40,
+                          size: isVerySmallScreen ? 30 : isSmallScreen ? 35 : isTablet ? 50 : 40,
                           color: Provider.of<ThemeProvider>(context, listen: false).isDarkMode ? Colors.grey[300] : Colors.grey[700],
                         )
                       : null,
@@ -634,7 +637,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildStatsSection() {
+  Widget _buildStatsSection(BoxConstraints constraints, bool isSmallScreen, bool isVerySmallScreen, bool isTablet) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         return Column(
@@ -647,22 +650,22 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   'Statistiques en temps réel',
                   style: TextStyle(
                     color: themeProvider.textColor,
-                    fontSize: 20,
+                    fontSize: isVerySmallScreen ? 16 : isSmallScreen ? 18 : isTablet ? 24 : 20,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 if (_isLoadingStats)
                   SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: isVerySmallScreen ? 16 : isSmallScreen ? 18 : 20,
+                    height: isVerySmallScreen ? 16 : isSmallScreen ? 18 : 20,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
+                      strokeWidth: isVerySmallScreen ? 1.5 : isSmallScreen ? 1.8 : 2,
                       valueColor: AlwaysStoppedAnimation<Color>(themeProvider.primaryColor),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16),
             Row(
               children: [
                 Expanded(
@@ -674,7 +677,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     trend: '+12%',
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16),
                 Expanded(
                   child: StatsCard(
                     title: 'Publications',
@@ -686,7 +689,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16),
             Row(
               children: [
                 Expanded(
@@ -698,7 +701,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     trend: '+3%',
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16),
                 Expanded(
                   child: StatsCard(
                     title: 'Notifications',
@@ -716,7 +719,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildQuickActions(BoxConstraints constraints, bool isSmallScreen, bool isVerySmallScreen, bool isTablet) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         final user = appProvider.currentUser;
@@ -791,18 +794,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               'Actions rapides',
               style: TextStyle(
                 color: Provider.of<ThemeProvider>(context, listen: false).isDarkMode ? Colors.grey[200] : Colors.grey[800],
-                fontSize: 20,
+                fontSize: isVerySmallScreen ? 16 : isSmallScreen ? 18 : isTablet ? 24 : 20,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16),
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 1.4,
+              crossAxisCount: isTablet ? 3 : 2,
+              crossAxisSpacing: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16,
+              mainAxisSpacing: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16,
+              childAspectRatio: isTablet ? 1.6 : 1.4,
               children: actions,
             ),
           ],
@@ -811,7 +814,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildRecentPublications() {
+  Widget _buildRecentPublications(BoxConstraints constraints, bool isSmallScreen, bool isVerySmallScreen, bool isTablet) {
     // Prendre seulement la première publication (la plus récente)
     final latestPublication = _recentPublications.isNotEmpty ? _recentPublications.first : null;
     
@@ -825,7 +828,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               'Publications récentes',
               style: TextStyle(
                 color: Provider.of<ThemeProvider>(context, listen: false).isDarkMode ? Colors.grey[200] : Colors.grey[800],
-                fontSize: 20,
+                fontSize: isVerySmallScreen ? 16 : isSmallScreen ? 18 : isTablet ? 24 : 20,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -835,23 +838,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 icon: Icon(
                   Icons.refresh,
                   color: Color(0xFF00D4FF),
-                  size: 18,
+                  size: isVerySmallScreen ? 14 : isSmallScreen ? 16 : 18,
                 ),
                 label: Text(
                   'Actualiser',
                   style: TextStyle(
                     color: Color(0xFF00D4FF),
-                    fontSize: 14,
+                    fontSize: isVerySmallScreen ? 11 : isSmallScreen ? 12 : 14,
                   ),
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16),
         FuturisticCard(
           child: _isLoadingPublications
               ? Padding(
-                  padding: const EdgeInsets.all(32),
+                  padding: EdgeInsets.all(isVerySmallScreen ? 24 : isSmallScreen ? 28 : isTablet ? 40 : 32),
                   child: Center(
                     child: CircularProgressIndicator(
                       color: Color(0xFF00D4FF),
@@ -860,24 +863,24 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 )
               : latestPublication == null
                   ? Padding(
-                      padding: const EdgeInsets.all(32),
+                      padding: EdgeInsets.all(isVerySmallScreen ? 24 : isSmallScreen ? 28 : isTablet ? 40 : 32),
                       child: Center(
                         child: Column(
                           children: [
                             Icon(
                               Icons.article_outlined,
-                              size: 48,
+                              size: isVerySmallScreen ? 36 : isSmallScreen ? 42 : isTablet ? 60 : 48,
                               color: Colors.black26,
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
                             Text(
                               'Aucune publication',
                               style: TextStyle(
                                 color: Colors.black54,
-                                fontSize: 16,
+                                fontSize: isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: isVerySmallScreen ? 6 : isSmallScreen ? 7 : 8),
                             TextButton(
                               onPressed: _loadRecentPublications,
                               child: Text(
@@ -889,7 +892,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         ),
                       ),
                     )
-                  : _buildPublicationPreview(latestPublication),
+                  : _buildPublicationPreview(latestPublication, isSmallScreen, isVerySmallScreen, isTablet),
         ),
       ],
     );
@@ -925,7 +928,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
   
   /// Widget pour afficher la preview d'une publication
-  Widget _buildPublicationPreview(Map<String, dynamic> publication) {
+  Widget _buildPublicationPreview(Map<String, dynamic> publication, bool isSmallScreen, bool isVerySmallScreen, bool isTablet) {
     final publicationId = publication['_id'] ?? 'unknown';
     final content = publication['content'] ?? publication['text'] ?? '';
     final userId = publication['userId'];
@@ -962,11 +965,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           // Preview média en grand (si disponible)
           if (hasMedia)
             Container(
-              height: 200,
+              height: isVerySmallScreen ? 150 : isSmallScreen ? 180 : isTablet ? 250 : 200,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
+                  topLeft: Radius.circular(isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
+                  topRight: Radius.circular(isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
                 ),
                 color: Colors.black87,
               ),
@@ -975,8 +978,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
+                      topLeft: Radius.circular(isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
+                      topRight: Radius.circular(isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
                     ),
                     child: mediaType == 'image' && mediaUrl.isNotEmpty
                         ? Image.network(
@@ -986,7 +989,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               color: Colors.black12,
                               child: Icon(
                                 Icons.broken_image,
-                                size: 48,
+                                size: isVerySmallScreen ? 32 : isSmallScreen ? 40 : 48,
                                 color: Colors.black26,
                               ),
                             ),
@@ -1020,14 +1023,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                           color: Colors.black.withValues(alpha: 0.3),
                                           child: Center(
                                             child: Container(
-                                              padding: EdgeInsets.all(16),
+                                              padding: EdgeInsets.all(isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
                                               decoration: BoxDecoration(
                                                 color: Colors.black.withValues(alpha: 0.6),
                                                 shape: BoxShape.circle,
                                               ),
                                               child: Icon(
                                                 Icons.play_arrow,
-                                                size: 48,
+                                                size: isVerySmallScreen ? 36 : isSmallScreen ? 42 : 48,
                                                 color: Colors.white,
                                               ),
                                             ),
@@ -1043,7 +1046,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     child: Center(
                                       child: Icon(
                                         Icons.play_circle_filled,
-                                        size: 64,
+                                        size: isVerySmallScreen ? 48 : isSmallScreen ? 56 : 64,
                                         color: Colors.white.withValues(alpha: 0.9),
                                       ),
                                     ),
@@ -1054,7 +1057,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 color: Colors.black12,
                                 child: Icon(
                                   Icons.image,
-                                  size: 48,
+                                  size: isVerySmallScreen ? 32 : isSmallScreen ? 40 : 48,
                                   color: Colors.black26,
                                 ),
                               ),
@@ -1065,7 +1068,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     left: 0,
                     right: 0,
                     child: Container(
-                      height: 80,
+                      height: isVerySmallScreen ? 60 : isSmallScreen ? 70 : 80,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.bottomCenter,
@@ -1081,28 +1084,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   // Compteur de médias si plusieurs
                   if (media.length > 1)
                     Positioned(
-                      top: 12,
-                      right: 12,
+                      top: isVerySmallScreen ? 8 : isSmallScreen ? 10 : 12,
+                      right: isVerySmallScreen ? 8 : isSmallScreen ? 10 : 12,
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: EdgeInsets.symmetric(horizontal: isVerySmallScreen ? 6 : isSmallScreen ? 8 : 10, vertical: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 6),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(isVerySmallScreen ? 16 : isSmallScreen ? 18 : 20),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.collections,
-                              size: 16,
+                              size: isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16,
                               color: Colors.white,
                             ),
-                            const SizedBox(width: 4),
+                            SizedBox(width: isVerySmallScreen ? 3 : isSmallScreen ? 3.5 : 4),
                             Text(
                               '${media.length}',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 12,
+                                fontSize: isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1112,19 +1115,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     ),
                   // Badge "NOUVEAU"
                   Positioned(
-                    top: 12,
-                    left: 12,
+                    top: isVerySmallScreen ? 8 : isSmallScreen ? 10 : 12,
+                    left: isVerySmallScreen ? 8 : isSmallScreen ? 10 : 12,
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: EdgeInsets.symmetric(horizontal: isVerySmallScreen ? 6 : isSmallScreen ? 8 : 10, vertical: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 6),
                       decoration: BoxDecoration(
                         color: Color(0xFF00FF88),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(isVerySmallScreen ? 16 : isSmallScreen ? 18 : 20),
                       ),
                       child: Text(
                         'NOUVEAU',
                         style: TextStyle(
                           color: Colors.black,
-                          fontSize: 11,
+                          fontSize: isVerySmallScreen ? 9 : isSmallScreen ? 10 : 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
                         ),
@@ -1136,7 +1139,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ),
           // Informations de la publication
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1144,16 +1147,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 Row(
                   children: [
                     CircleAvatar(
-                      radius: 20,
+                      radius: isVerySmallScreen ? 16 : isSmallScreen ? 18 : 20,
                       backgroundImage: profileImage.isNotEmpty
                           ? NetworkImage(profileImage)
                           : null,
                       backgroundColor: const Color(0xFF00D4FF),
                       child: profileImage.isEmpty
-                          ? const Icon(Icons.person, size: 20, color: Colors.white)
+                          ? Icon(Icons.person, size: isVerySmallScreen ? 16 : isSmallScreen ? 18 : 20, color: Colors.white)
                           : null,
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1162,7 +1165,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                             userName,
                             style: TextStyle(
                               color: Colors.black,
-                              fontSize: 15,
+                              fontSize: isVerySmallScreen ? 13 : isSmallScreen ? 14 : 15,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -1170,7 +1173,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                             timeAgo,
                             style: TextStyle(
                               color: Colors.black54,
-                              fontSize: 12,
+                              fontSize: isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12,
                             ),
                           ),
                         ],
@@ -1179,67 +1182,67 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     Icon(
                       Icons.arrow_forward_ios,
                       color: Color(0xFF00D4FF),
-                      size: 18,
+                      size: isVerySmallScreen ? 14 : isSmallScreen ? 16 : 18,
                     ),
                   ],
                 ),
                 if (content.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                  SizedBox(height: isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12),
                   Text(
                     content,
                     style: TextStyle(
                       color: Colors.black87,
-                      fontSize: 14,
+                      fontSize: isVerySmallScreen ? 12 : isSmallScreen ? 13 : 14,
                       height: 1.5,
                     ),
                     maxLines: hasMedia ? 2 : 4,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-                const SizedBox(height: 16),
+                SizedBox(height: isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
                 // Actions: likes + commentaires
                 Row(
                   children: [
                     if (likesCount > 0) ...[
-                      Icon(Icons.favorite, size: 18, color: Colors.red),
-                      const SizedBox(width: 6),
+                      Icon(Icons.favorite, size: isVerySmallScreen ? 14 : isSmallScreen ? 16 : 18, color: Colors.red),
+                      SizedBox(width: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 6),
                       Text(
                         likesCount.toString(),
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: isVerySmallScreen ? 12 : isSmallScreen ? 13 : 14,
                           color: Colors.black87,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(width: 20),
+                      SizedBox(width: isVerySmallScreen ? 16 : isSmallScreen ? 18 : 20),
                     ],
                     Icon(
                       Icons.chat_bubble,
-                      size: 18,
+                      size: isVerySmallScreen ? 14 : isSmallScreen ? 16 : 18,
                       color: Color(0xFF00D4FF),
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 6),
                     Text(
                       commentsCount > 0
                           ? '$commentsCount ${commentsCount > 1 ? "commentaires" : "commentaire"}'
                           : 'Commenter',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: isVerySmallScreen ? 12 : isSmallScreen ? 13 : 14,
                         color: Color(0xFF00D4FF),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Spacer(),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: EdgeInsets.symmetric(horizontal: isVerySmallScreen ? 8 : isSmallScreen ? 10 : 12, vertical: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 6),
                       decoration: BoxDecoration(
                         color: Color(0xFF00D4FF).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(isVerySmallScreen ? 16 : isSmallScreen ? 18 : 20),
                       ),
                       child: Text(
                         'Voir plus',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12,
                           color: Color(0xFF00D4FF),
                           fontWeight: FontWeight.w600,
                         ),
