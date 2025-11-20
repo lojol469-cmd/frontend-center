@@ -191,34 +191,34 @@ class ApiService {
   static Future<bool> checkConnection() async {
     try {
       final url = '$baseUrl$apiPrefix/server-info';
-      developer.log('🔍 [CHECK] Tentative de connexion à: $url', name: 'ApiService');
+      debugPrint('🔍 [CHECK] Tentative de connexion à: $url');
 
       final response = await http.get(Uri.parse(url)).timeout(
         const Duration(seconds: 10), // Augmenté à 10 secondes pour mobile
       );
 
-      developer.log('📡 [CHECK] Status Code: ${response.statusCode}', name: 'ApiService');
-      developer.log('📡 [CHECK] Response Body: ${response.body.substring(0, response.body.length > 100 ? 100 : response.body.length)}', name: 'ApiService');
+      debugPrint('📡 [CHECK] Status Code: ${response.statusCode}');
+      debugPrint('📡 [CHECK] Response Body: ${response.body.substring(0, response.body.length > 100 ? 100 : response.body.length)}');
 
       // Accepter tout code de statut 2xx
       final isConnected = response.statusCode >= 200 && response.statusCode < 300;
-      developer.log('📡 [CHECK] Résultat: $isConnected', name: 'ApiService');
+      debugPrint('📡 [CHECK] Résultat: $isConnected');
 
       return isConnected;
     } catch (e) {
-      developer.log('❌ [CHECK] Erreur checkConnection: $e', name: 'ApiService');
-      developer.log('❌ [CHECK] Type d\'erreur: ${e.runtimeType}', name: 'ApiService');
+      debugPrint('❌ [CHECK] Erreur checkConnection: $e');
+      debugPrint('❌ [CHECK] Type d\'erreur: ${e.runtimeType}');
       
       // Log spécifique pour les erreurs SSL
       if (e.toString().contains('CERTIFICATE_VERIFY_FAILED') || 
           e.toString().contains('HandshakeException') ||
           e.toString().contains('SSL')) {
-        developer.log('🔒 [CHECK] Erreur SSL détectée - Certificat ou connexion sécurisée', name: 'ApiService');
+        debugPrint('🔒 [CHECK] Erreur SSL détectée - Certificat ou connexion sécurisée');
       }
       
       // Log pour les timeouts
       if (e.toString().contains('TimeoutException') || e.toString().contains('timeout')) {
-        developer.log('⏱️ [CHECK] Timeout détecté - Connexion trop lente', name: 'ApiService');
+        debugPrint('⏱️ [CHECK] Timeout détecté - Connexion trop lente');
       }
       
       return false;
