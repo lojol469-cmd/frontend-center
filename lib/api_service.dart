@@ -208,6 +208,19 @@ class ApiService {
     } catch (e) {
       developer.log('❌ [CHECK] Erreur checkConnection: $e', name: 'ApiService');
       developer.log('❌ [CHECK] Type d\'erreur: ${e.runtimeType}', name: 'ApiService');
+      
+      // Log spécifique pour les erreurs SSL
+      if (e.toString().contains('CERTIFICATE_VERIFY_FAILED') || 
+          e.toString().contains('HandshakeException') ||
+          e.toString().contains('SSL')) {
+        developer.log('🔒 [CHECK] Erreur SSL détectée - Certificat ou connexion sécurisée', name: 'ApiService');
+      }
+      
+      // Log pour les timeouts
+      if (e.toString().contains('TimeoutException') || e.toString().contains('timeout')) {
+        developer.log('⏱️ [CHECK] Timeout détecté - Connexion trop lente', name: 'ApiService');
+      }
+      
       return false;
     }
   }
