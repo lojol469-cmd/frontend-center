@@ -109,7 +109,7 @@ class MobileConnectionFix {
 
       final updatedApi = apiContent.replaceFirst(
         checkConnectionPattern,
-        '$1    await _ensureInitialized();\n\n    try {'
+        '\$1    await _ensureInitialized();\n\n    try {'
       );
 
       await File(apiFile).writeAsString(updatedApi);
@@ -203,7 +203,6 @@ void main(List<String> args) async {
   } else if (args.length >= 2 && args[0] == '--restore') {
     await MobileConnectionFix.restoreBackup(args[1]);
   } else {
-    await MobileConnectionFix.main(args);
+    await MobileConnectionFix.main([]);
   }
 }
-<parameter name="filePath">c:\Users\Admin\Pictures\DAT.ERT\ERT\flutterAPP\CENTER\scripts\mobile_connection_fix.dart

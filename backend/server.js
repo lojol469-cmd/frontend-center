@@ -258,6 +258,7 @@ const userSchema = new mongoose.Schema({
   cloudinaryPublicId: { type: String, default: '' }, // Pour supprimer l'image de Cloudinary
   isVerified: { type: Boolean, default: false },
   status: { type: String, enum: ['active', 'blocked', 'admin'], default: 'active' },
+  accessLevel: { type: Number, enum: [0, 1, 2], default: 0 }, // ✅ AJOUTÉ - Niveau d'accès (0: Basique, 1: Chat Utilisateurs, 2: Chat IA)
   otp: { type: String },
   otpExpires: { type: Date },
   savedPublications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Publication' }],
@@ -3273,7 +3274,7 @@ app.get('/api/users', verifyToken, async (req, res) => {
       _id: { $ne: req.user.userId }, // Exclure l'utilisateur actuel
       status: { $in: ['active', 'admin'] }
     })
-    .select('name email profileImage status')
+    .select('name email profileImage status accessLevel')
     .sort({ name: 1 });
 
     const usersData = users.map(user => ({
@@ -3281,7 +3282,8 @@ app.get('/api/users', verifyToken, async (req, res) => {
       name: user.name || user.email.split('@')[0], // Utiliser le nom ou la partie avant @ de l'email
       email: user.email,
       profileImage: user.profileImage,
-      status: user.status
+      status: user.status,
+      accessLevel: user.accessLevel || 0
     }));
 
     console.log(`✅ ${usersData.length} utilisateurs trouvés pour tous les utilisateurs authentifiés`);

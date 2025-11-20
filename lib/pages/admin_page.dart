@@ -58,7 +58,7 @@ class _AdminPageState extends State<AdminPage> {
   @override
   void initState() {
     super.initState();
-    _selectedImage = 'assets/images/aquatic_background.jpg';
+    _selectedImage = 'assets/images/pexels-francesco-ungaro-2325447.jpg'; // Image existante
     _loadAdminData();
   }
 
@@ -216,7 +216,7 @@ class _AdminPageState extends State<AdminPage> {
           extendBodyBehindAppBar: true,
           body: ImageBackground(
             imagePath: _selectedImage,
-            opacity: 0.25,
+            opacity: 0.3, // Opacité modérée pour visibilité équilibrée
             child: ListView(
               padding: const EdgeInsets.only(top: kToolbarHeight + 60, left: 20, right: 20, bottom: 20),
               children: [
@@ -428,114 +428,120 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   Widget _buildAccessLevelManagement(BuildContext context, AppProvider appProvider) {
-    return FuturisticCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header fixe en haut
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxHeight = constraints.maxHeight;
+        
+        // Calculer la hauteur disponible pour la liste (environ 60% de l'écran)
+        final listHeight = maxHeight * 0.6;
+        
+        return FuturisticCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header fixe en haut
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFA500).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.security_rounded,
+                      color: Color(0xFFFFA500),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Gestion des Niveaux d\'Accès',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Explication des niveaux
               Container(
-                padding: const EdgeInsets.all(12),
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFA500).withValues(alpha: 0.1),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    width: 1,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.security_rounded,
-                  color: Color(0xFFFFA500),
-                  size: 24,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Niveaux d\'accès disponibles :',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildLevelInfo(levelBasic, 'Basique', 'Accès limité aux fonctionnalités de base'),
+                    const SizedBox(height: 8),
+                    _buildLevelInfo(levelChatUsers, 'Chat Utilisateurs', 'Accès au chat privé avec liste de tous les utilisateurs'),
+                    const SizedBox(height: 8),
+                    _buildLevelInfo(levelAiChat, 'Chat IA', 'Accès au chat IA et à toutes les fonctionnalités'),
+                  ],
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  'Gestion des Niveaux d\'Accès',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+              const SizedBox(height: 20),
+              // Liste des utilisateurs avec scroll adaptatif
+              SizedBox(
+                height: listHeight.clamp(200, 600), // Hauteur adaptative entre 200 et 600 pixels
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_users.isEmpty)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text(
+                              'Aucun utilisateur',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Utilisateurs (${_users.length})',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ..._users.map((user) => _buildUserLevelItem(context, user, appProvider)),
+                          ],
+                        ),
+                    ],
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          // Contenu scrollable
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.6, // Limite la hauteur à 60% de l'écran
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Explication des niveaux
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Niveaux d\'accès disponibles :',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildLevelInfo(levelBasic, 'Basique', 'Accès limité aux fonctionnalités de base'),
-                        const SizedBox(height: 8),
-                        _buildLevelInfo(levelChatUsers, 'Chat Utilisateurs', 'Accès au chat privé avec liste de tous les utilisateurs'),
-                        const SizedBox(height: 8),
-                        _buildLevelInfo(levelAiChat, 'Chat IA', 'Accès au chat IA et à toutes les fonctionnalités'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Liste des utilisateurs
-                  if (_users.isEmpty)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Text(
-                          'Aucun utilisateur',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ),
-                    )
-                  else
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Utilisateurs (${_users.length})',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ..._users.map((user) => _buildUserLevelItem(context, user, appProvider)),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -837,9 +843,12 @@ class _AdminPageState extends State<AdminPage> {
     final String rawProfileImage = user['profileImage'] ?? '';
     final String profileImage = _getFullUrl(rawProfileImage);
 
-    debugPrint('👤 User: $name');
-    debugPrint('   Raw image: $rawProfileImage');
-    debugPrint('   Full URL: $profileImage');
+    // Logs réduits pour éviter la duplication
+    if (profileImage.isNotEmpty) {
+      debugPrint('👤 User: $name (avec image)');
+    } else {
+      debugPrint('👤 User: $name (sans image)');
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -914,12 +923,15 @@ class _AdminPageState extends State<AdminPage> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                    Flexible(
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (status == 'admin') ...[
@@ -1052,9 +1064,8 @@ class _AdminPageState extends State<AdminPage> {
     final String rawFaceImage = employee['faceImage'] ?? '';
     final String faceImage = _getFullUrl(rawFaceImage);
 
+    // Log réduit pour éviter la pollution de console
     debugPrint('👷 Employee: $name');
-    debugPrint('   Raw image: $rawFaceImage');
-    debugPrint('   Full URL: $faceImage');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1292,11 +1303,21 @@ class _AdminPageState extends State<AdminPage> {
 
     debugPrint('✅ [LEVEL_CHANGE] Token présent, appel API...');
 
+    // Afficher un indicateur de chargement
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Mise à jour du niveau d\'accès...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
     try {
       // Appeler l'API pour mettre à jour le niveau d'accès
       debugPrint('📡 [LEVEL_CHANGE] Appel ApiService.updateUserAccessLevel');
-      await ApiService.updateUserAccessLevel(token, userId, newLevel);
+      final result = await ApiService.updateUserAccessLevel(token, userId, newLevel);
       debugPrint('✅ [LEVEL_CHANGE] API appelée avec succès');
+      debugPrint('📊 [LEVEL_CHANGE] Résultat: $result');
 
       if (!context.mounted) {
         debugPrint('⚠️ [LEVEL_CHANGE] Context non monté après API');
@@ -1305,12 +1326,26 @@ class _AdminPageState extends State<AdminPage> {
 
       final levelName = _getLevelName(newLevel);
       debugPrint('📝 [LEVEL_CHANGE] Niveau mis à jour: $levelName');
+
+      // Mettre à jour localement la liste des utilisateurs pour un feedback immédiat
+      setState(() {
+        final userIndex = _users.indexWhere((user) => user['_id'] == userId || user['id'] == userId);
+        if (userIndex != -1) {
+          _users[userIndex]['accessLevel'] = newLevel;
+          debugPrint('✅ [LEVEL_CHANGE] État local mis à jour pour l\'utilisateur $userId');
+        }
+      });
+
       _showMessage(context, 'Niveau d\'accès mis à jour: $levelName');
 
-      // Recharger les données pour refléter les changements
+      // Attendre un peu avant de recharger pour éviter les conflits
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Recharger les données pour s'assurer de la cohérence
       debugPrint('🔄 [LEVEL_CHANGE] Rechargement des données admin');
-      _loadAdminData();
+      await _loadAdminData();
       debugPrint('✅ [LEVEL_CHANGE] Changement terminé avec succès');
+
     } catch (e) {
       debugPrint('❌ [LEVEL_CHANGE] Erreur lors de la mise à jour: $e');
       debugPrint('   Type d\'erreur: ${e.runtimeType}');

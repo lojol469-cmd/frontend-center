@@ -2061,14 +2061,14 @@ class ApiService {
     int accessLevel,
   ) async {
     await _ensureInitialized();
-    developer.log('🔄 [API] updateUserAccessLevel - Début', name: 'ApiService');
-    developer.log('   UserId: $userId', name: 'ApiService');
-    developer.log('   AccessLevel: $accessLevel', name: 'ApiService');
-    developer.log('   BaseUrl: $baseUrl', name: 'ApiService');
+    debugPrint('🔄 [API] updateUserAccessLevel - Début');
+    debugPrint('   UserId: $userId');
+    debugPrint('   AccessLevel: $accessLevel');
+    debugPrint('   BaseUrl: $baseUrl');
 
     try {
       final url = '$baseUrl$apiPrefix/users/$userId/access-level';
-      developer.log('📡 [API] URL: $url', name: 'ApiService');
+      debugPrint('📡 [API] URL: $url');
 
       final response = await http.put(
         Uri.parse(url),
@@ -2076,20 +2076,20 @@ class ApiService {
         body: json.encode({'accessLevel': accessLevel}),
       );
 
-      developer.log('📡 [API] Status Code: ${response.statusCode}', name: 'ApiService');
-      developer.log('📡 [API] Response Body: ${response.body}', name: 'ApiService');
+      debugPrint('📡 [API] Status Code: ${response.statusCode}');
+      debugPrint('📡 [API] Response Body: ${response.body}');
 
       final data = json.decode(response.body);
 
       if (response.statusCode == 200) {
-        developer.log('✅ [API] updateUserAccessLevel - Succès', name: 'ApiService');
+        debugPrint('✅ [API] updateUserAccessLevel - Succès');
         return data;
       } else {
-        developer.log('❌ [API] updateUserAccessLevel - Erreur ${response.statusCode}: ${data['message']}', name: 'ApiService');
+        debugPrint('❌ [API] updateUserAccessLevel - Erreur ${response.statusCode}: ${data['message']}');
         throw Exception(data['message'] ?? 'Erreur de mise à jour du niveau d\'accès');
       }
     } catch (e) {
-      developer.log('❌ [API] updateUserAccessLevel - Exception: $e', name: 'ApiService');
+      debugPrint('❌ [API] updateUserAccessLevel - Exception: $e');
       throw Exception('Erreur de connexion: $e');
     }
   }
