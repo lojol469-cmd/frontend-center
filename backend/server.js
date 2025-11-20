@@ -259,6 +259,7 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   status: { type: String, enum: ['active', 'blocked', 'admin'], default: 'active' },
   accessLevel: { type: Number, enum: [0, 1, 2], default: 0 }, // ✅ AJOUTÉ - Niveau d'accès (0: Basique, 1: Chat Utilisateurs, 2: Chat IA)
+  aiChatAccess: { type: Boolean, default: false }, // ✅ AJOUTÉ - Accès au chat IA
   otp: { type: String },
   otpExpires: { type: Date },
   savedPublications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Publication' }],
@@ -3312,7 +3313,7 @@ app.get('/api/users', verifyToken, async (req, res) => {
       _id: { $ne: req.user.userId }, // Exclure l'utilisateur actuel
       status: { $in: ['active', 'admin', 'blocked'] }
     })
-    .select('name email profileImage status accessLevel')
+    .select('name email profileImage status accessLevel aiChatAccess')
     .sort({ name: 1 });
 
     const usersData = users.map(user => ({
@@ -3321,7 +3322,8 @@ app.get('/api/users', verifyToken, async (req, res) => {
       email: user.email,
       profileImage: user.profileImage,
       status: user.status,
-      accessLevel: user.accessLevel || 0
+      accessLevel: user.accessLevel || 0,
+      aiChatAccess: user.aiChatAccess || false
     }));
 
     console.log(`✅ ${usersData.length} utilisateurs trouvés pour tous les utilisateurs authentifiés`);
@@ -3413,6 +3415,49 @@ app.put('/api/users/:id/access-level', verifyToken, verifyCanManageUsers, async 
     res.json({ message: 'Niveau d\'accès mis à jour', user });
   } catch (error) {
     console.error('❌ Erreur lors de la mise à jour du niveau d\'accès:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+});
+
+app.put('/api/users/:id/ai-chat-access', verifyToken, verifyCanManageUsers, async (req, res) => {
+  console.log('\n=== BASCULE ACCÈS CHAT IA ===');
+  console.log('User ID:', req.params.id);
+  console.log('Token User ID:', req.user.userId);
+
+  try {
+    console.log('🔍 Recherche de l\'utilisateur...');
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      console.log('❌ Utilisateur non trouvé:', req.params.id);
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    console.log('✅ Utilisateur trouvé:', user.name, user.email);
+
+    const mainAdmin = ['nyundumathryme@gmail', 'nyundumathryme@gmail.com'].includes(user.email.toLowerCase());
+    if (mainAdmin) {
+      console.log('🚫 Tentative de modification de l\'admin principal');
+      return res.status(403).json({ message: 'Impossible de modifier l\'admin principal' });
+    }
+
+    // Basculer l'accès au chat IA
+    const newAiChatAccess = !user.aiChatAccess;
+    console.log('🔄 Bascule accès chat IA:', user.aiChatAccess, '→', newAiChatAccess);
+    user.aiChatAccess = newAiChatAccess;
+    await user.save();
+
+    console.log('✅ Accès chat IA mis à jour avec succès');
+    res.json({ 
+      message: `Accès chat IA ${newAiChatAccess ? 'activé' : 'désactivé'}`, 
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        aiChatAccess: user.aiChatAccess
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur lors de la bascule accès chat IA:', error);
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 });

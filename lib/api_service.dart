@@ -2094,6 +2094,43 @@ class ApiService {
     }
   }
 
+  // Basculer l'accès au chat IA pour un utilisateur
+  static Future<Map<String, dynamic>> toggleAiChatAccess(
+    String token,
+    String userId,
+  ) async {
+    await _ensureInitialized();
+    debugPrint('🔄 [API] toggleAiChatAccess - Début');
+    debugPrint('   UserId: $userId');
+    debugPrint('   BaseUrl: $baseUrl');
+
+    try {
+      final url = '$baseUrl$apiPrefix/users/$userId/ai-chat-access';
+      debugPrint('📡 [API] URL: $url');
+
+      final response = await http.put(
+        Uri.parse(url),
+        headers: _authHeaders(token),
+      );
+
+      debugPrint('📡 [API] Status Code: ${response.statusCode}');
+      debugPrint('📡 [API] Response Body: ${response.body}');
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ [API] toggleAiChatAccess - Succès');
+        return data;
+      } else {
+        debugPrint('❌ [API] toggleAiChatAccess - Erreur ${response.statusCode}: ${data['message']}');
+        throw Exception(data['message'] ?? 'Erreur de basculement accès chat IA');
+      }
+    } catch (e) {
+      debugPrint('❌ [API] toggleAiChatAccess - Exception: $e');
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
   // Supprimer un utilisateur
   static Future<Map<String, dynamic>> deleteUser(String token, String userId) async {
     await _ensureInitialized();

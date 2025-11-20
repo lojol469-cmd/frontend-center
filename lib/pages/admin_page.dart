@@ -657,34 +657,65 @@ class _AdminPageState extends State<AdminPage> {
               ],
             ),
           ),
-          PopupMenuButton<String>(
-            onSelected: (value) => _handleUserAction(context, userId, value, appProvider),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'activate',
-                child: Text('Activer'),
+          Row(
+            children: [
+              // Bouton Désactiver (admin seulement)
+              if (appProvider.currentUser?['email'] == 'nyundumathryme@gmail.com')
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: IconButton(
+                    onPressed: () => _handleUserAction(context, userId, 'deactivate', appProvider),
+                    icon: const Icon(Icons.block, color: Colors.red),
+                    tooltip: 'Désactiver l\'utilisateur',
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.red.withValues(alpha: 0.1),
+                      padding: const EdgeInsets.all(8),
+                    ),
+                  ),
+                ),
+              // Bouton Chat IA
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  onPressed: () => _handleUserAction(context, userId, 'toggle_ai_chat', appProvider),
+                  icon: Icon(
+                    user['aiChatAccess'] == true ? Icons.smart_toy : Icons.smart_toy_outlined,
+                    color: user['aiChatAccess'] == true ? Colors.blue : Colors.grey,
+                  ),
+                  tooltip: user['aiChatAccess'] == true ? 'Désactiver le chat IA' : 'Activer le chat IA',
+                  style: IconButton.styleFrom(
+                    backgroundColor: (user['aiChatAccess'] == true ? Colors.blue : Colors.grey).withValues(alpha: 0.1),
+                    padding: const EdgeInsets.all(8),
+                  ),
+                ),
               ),
-              const PopupMenuItem(
-                value: 'deactivate',
-                child: Text('Désactiver'),
-              ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Text('Supprimer'),
+              // Menu déroulant existant
+              PopupMenuButton<String>(
+                onSelected: (value) => _handleUserAction(context, userId, value, appProvider),
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'activate',
+                    child: Text('Activer'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Supprimer'),
+                  ),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(status).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.more_vert_rounded,
+                    color: _getStatusColor(status),
+                    size: 20,
+                  ),
+                ),
               ),
             ],
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _getStatusColor(status).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.more_vert_rounded,
-                color: _getStatusColor(status),
-                size: 20,
-              ),
-            ),
           ),
         ],
       ),
@@ -1160,6 +1191,12 @@ class _AdminPageState extends State<AdminPage> {
           await ApiService.updateUserStatus(token, userId, 'blocked');
           if (!context.mounted) return;
           _showMessage(context, 'Utilisateur désactivé');
+          _loadAdminData();
+          break;
+        case 'toggle_ai_chat':
+          await ApiService.toggleAiChatAccess(token, userId);
+          if (!context.mounted) return;
+          _showMessage(context, 'Accès chat IA basculé');
           _loadAdminData();
           break;
         case 'delete':
