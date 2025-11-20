@@ -197,6 +197,7 @@ class ApiService {
       // Accepter tout code de statut 2xx
       return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {
+      developer.log('❌ Erreur checkConnection: $e', name: 'ApiService');
       return false;
     }
   }
