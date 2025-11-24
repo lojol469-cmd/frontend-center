@@ -693,6 +693,19 @@ class _AdminPageState extends State<AdminPage> {
               PopupMenuButton<String>(
                 onSelected: (value) => _handleUserAction(context, userId, value, appProvider),
                 itemBuilder: (context) => [
+                  if (status == 'admin') ...[
+                    const PopupMenuItem(
+                      value: 'demote',
+                      child: Row(
+                        children: [
+                          Icon(Icons.arrow_downward, color: Colors.orange),
+                          SizedBox(width: 8),
+                          Text('Rétrograder'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                  ],
                   const PopupMenuItem(
                     value: 'activate',
                     child: Text('Activer'),
@@ -1185,6 +1198,12 @@ class _AdminPageState extends State<AdminPage> {
           await ApiService.updateUserStatus(token, userId, 'admin');
           if (!context.mounted) return;
           _showMessage(context, 'Utilisateur promu administrateur');
+          _loadAdminData(); // Recharger les données
+          break;
+        case 'demote':
+          await ApiService.updateUserStatus(token, userId, 'active');
+          if (!context.mounted) return;
+          _showMessage(context, 'Administrateur rétrogradé');
           _loadAdminData(); // Recharger les données
           break;
         case 'deactivate':
