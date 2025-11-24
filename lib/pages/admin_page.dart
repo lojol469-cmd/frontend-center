@@ -621,15 +621,16 @@ class _AdminPageState extends State<AdminPage> {
                           fontSize: 16,
                         ),
                         overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                     if (status == 'admin') ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
                           color: Colors.green.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                           border: Border.all(
                             color: Colors.green.withValues(alpha: 0.5),
                             width: 1,
@@ -639,8 +640,9 @@ class _AdminPageState extends State<AdminPage> {
                           'ADMIN',
                           style: TextStyle(
                             color: Colors.green,
-                            fontSize: 10,
+                            fontSize: 8,
                             fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
@@ -657,94 +659,108 @@ class _AdminPageState extends State<AdminPage> {
               ],
             ),
           ),
-          Row(
-            children: [
-              // Bouton Désactiver (admin seulement)
-              if (appProvider.currentUser?['email'] == 'nyundumathryme@gmail.com')
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  child: IconButton(
-                    onPressed: () => _handleUserAction(context, userId, 'deactivate', appProvider),
-                    icon: const Icon(Icons.block, color: Colors.red),
-                    tooltip: 'Désactiver l\'utilisateur',
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.red.withValues(alpha: 0.1),
-                      padding: const EdgeInsets.all(8),
-                    ),
-                  ),
-                ),
-              // Bouton Chat IA
-              Container(
-                margin: const EdgeInsets.only(right: 8),
-                child: IconButton(
-                  onPressed: () => _handleUserAction(context, userId, 'toggle_ai_chat', appProvider),
-                  icon: Icon(
-                    user['aiChatAccess'] == true ? Icons.smart_toy : Icons.smart_toy_outlined,
-                    color: user['aiChatAccess'] == true ? Colors.blue : Colors.grey,
-                  ),
-                  tooltip: user['aiChatAccess'] == true ? 'Désactiver le chat IA' : 'Activer le chat IA',
-                  style: IconButton.styleFrom(
-                    backgroundColor: (user['aiChatAccess'] == true ? Colors.blue : Colors.grey).withValues(alpha: 0.1),
-                    padding: const EdgeInsets.all(8),
-                  ),
-                ),
-              ),
-              // Bouton Messagerie
-              Container(
-                margin: const EdgeInsets.only(right: 8),
-                child: IconButton(
-                  onPressed: () => _handleUserAction(context, userId, 'toggle_message_access', appProvider),
-                  icon: Icon(
-                    user['messageAccess'] == true ? Icons.message : Icons.message_outlined,
-                    color: user['messageAccess'] == true ? Colors.green : Colors.grey,
-                  ),
-                  tooltip: user['messageAccess'] == true ? 'Désactiver la messagerie' : 'Activer la messagerie',
-                  style: IconButton.styleFrom(
-                    backgroundColor: (user['messageAccess'] == true ? Colors.green : Colors.grey).withValues(alpha: 0.1),
-                    padding: const EdgeInsets.all(8),
-                  ),
-                ),
-              ),
-              // Menu déroulant existant
-              PopupMenuButton<String>(
-                onSelected: (value) => _handleUserAction(context, userId, value, appProvider),
-                itemBuilder: (context) => [
-                  if (status == 'admin') ...[
-                    const PopupMenuItem(
-                      value: 'demote',
-                      child: Row(
-                        children: [
-                          Icon(Icons.arrow_downward, color: Colors.orange),
-                          SizedBox(width: 8),
-                          Text('Rétrograder'),
-                        ],
+          // Boutons d'action - Responsive avec Wrap
+          Container(
+            constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              alignment: WrapAlignment.end,
+              children: [
+                // Bouton Désactiver (admin seulement)
+                if (appProvider.currentUser?['email'] == 'nyundumathryme@gmail.com')
+                  SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: IconButton(
+                      onPressed: () => _handleUserAction(context, userId, 'deactivate', appProvider),
+                      icon: const Icon(Icons.block, size: 18),
+                      tooltip: 'Désactiver l\'utilisateur',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.red.withValues(alpha: 0.1),
+                        padding: const EdgeInsets.all(6),
                       ),
                     ),
-                    const PopupMenuDivider(),
-                  ],
-                  const PopupMenuItem(
-                    value: 'activate',
-                    child: Text('Activer'),
                   ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Text('Supprimer'),
-                  ),
-                ],
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(status).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.more_vert_rounded,
-                    color: _getStatusColor(status),
-                    size: 20,
+                // Bouton Chat IA
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: IconButton(
+                    onPressed: () => _handleUserAction(context, userId, 'toggle_ai_chat', appProvider),
+                    icon: Icon(
+                      user['aiChatAccess'] == true ? Icons.smart_toy : Icons.smart_toy_outlined,
+                      size: 18,
+                    ),
+                    tooltip: user['aiChatAccess'] == true ? 'Désactiver le chat IA' : 'Activer le chat IA',
+                    style: IconButton.styleFrom(
+                      backgroundColor: (user['aiChatAccess'] == true ? Colors.blue : Colors.grey).withValues(alpha: 0.1),
+                      padding: const EdgeInsets.all(6),
+                    ),
                   ),
                 ),
-              ),
-            ],
+                // Bouton Messagerie
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: IconButton(
+                    onPressed: () => _handleUserAction(context, userId, 'toggle_message_access', appProvider),
+                    icon: Icon(
+                      user['messageAccess'] == true ? Icons.message : Icons.message_outlined,
+                      size: 18,
+                    ),
+                    tooltip: user['messageAccess'] == true ? 'Désactiver la messagerie' : 'Activer la messagerie',
+                    style: IconButton.styleFrom(
+                      backgroundColor: (user['messageAccess'] == true ? Colors.green : Colors.grey).withValues(alpha: 0.1),
+                      padding: const EdgeInsets.all(6),
+                    ),
+                  ),
+                ),
+                // Menu déroulant existant
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: PopupMenuButton<String>(
+                    onSelected: (value) => _handleUserAction(context, userId, value, appProvider),
+                    itemBuilder: (context) => [
+                      if (status == 'admin') ...[
+                        const PopupMenuItem(
+                          value: 'demote',
+                          child: Row(
+                            children: [
+                              Icon(Icons.arrow_downward, color: Colors.orange),
+                              SizedBox(width: 8),
+                              Text('Rétrograder'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                      ],
+                      const PopupMenuItem(
+                        value: 'activate',
+                        child: Text('Activer'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Supprimer'),
+                      ),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(status).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        Icons.more_vert_rounded,
+                        color: _getStatusColor(status),
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
