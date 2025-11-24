@@ -2142,6 +2142,43 @@ class ApiService {
     }
   }
 
+  // Basculer l'accès à la messagerie pour un utilisateur
+  static Future<Map<String, dynamic>> toggleMessageAccess(
+    String token,
+    String userId,
+  ) async {
+    await _ensureInitialized();
+    debugPrint('🔄 [API] toggleMessageAccess - Début');
+    debugPrint('   UserId: $userId');
+    debugPrint('   BaseUrl: $baseUrl');
+
+    try {
+      final url = '$baseUrl$apiPrefix/users/$userId/message-access';
+      debugPrint('📡 [API] URL: $url');
+
+      final response = await http.put(
+        Uri.parse(url),
+        headers: _authHeaders(token),
+      );
+
+      debugPrint('📡 [API] Status Code: ${response.statusCode}');
+      debugPrint('📡 [API] Response Body: ${response.body}');
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ [API] toggleMessageAccess - Succès');
+        return data;
+      } else {
+        debugPrint('❌ [API] toggleMessageAccess - Erreur ${response.statusCode}: ${data['message']}');
+        throw Exception(data['message'] ?? 'Erreur de basculement accès messagerie');
+      }
+    } catch (e) {
+      debugPrint('❌ [API] toggleMessageAccess - Exception: $e');
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
   // Supprimer un utilisateur
   static Future<Map<String, dynamic>> deleteUser(String token, String userId) async {
     await _ensureInitialized();

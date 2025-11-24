@@ -689,6 +689,22 @@ class _AdminPageState extends State<AdminPage> {
                   ),
                 ),
               ),
+              // Bouton Messagerie
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  onPressed: () => _handleUserAction(context, userId, 'toggle_message_access', appProvider),
+                  icon: Icon(
+                    user['messageAccess'] == true ? Icons.message : Icons.message_outlined,
+                    color: user['messageAccess'] == true ? Colors.green : Colors.grey,
+                  ),
+                  tooltip: user['messageAccess'] == true ? 'Désactiver la messagerie' : 'Activer la messagerie',
+                  style: IconButton.styleFrom(
+                    backgroundColor: (user['messageAccess'] == true ? Colors.green : Colors.grey).withValues(alpha: 0.1),
+                    padding: const EdgeInsets.all(8),
+                  ),
+                ),
+              ),
               // Menu déroulant existant
               PopupMenuButton<String>(
                 onSelected: (value) => _handleUserAction(context, userId, value, appProvider),
@@ -1216,6 +1232,12 @@ class _AdminPageState extends State<AdminPage> {
           await ApiService.toggleAiChatAccess(token, userId);
           if (!context.mounted) return;
           _showMessage(context, 'Accès chat IA basculé');
+          _loadAdminData();
+          break;
+        case 'toggle_message_access':
+          await ApiService.toggleMessageAccess(token, userId);
+          if (!context.mounted) return;
+          _showMessage(context, 'Accès messagerie basculé');
           _loadAdminData();
           break;
         case 'delete':
