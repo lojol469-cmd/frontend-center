@@ -4326,6 +4326,62 @@ app.get('/api/stories/:id/views', verifyToken, async (req, res) => {
   }
 });
 
+// Supprimer une story
+app.delete('/api/stories/:id', verifyToken, async (req, res) => {
+  try {
+    console.log('\n=== SUPPRESSION STORY ===');
+    console.log('Story ID:', req.params.id);
+    console.log('User ID:', req.user.userId);
+
+    const story = await Story.findById(req.params.id);
+    
+    if (!story) {
+      return res.status(404).json({ message: 'Story non trouvée' });
+    }
+
+    // Vérifier que c'est l'auteur de la story
+    if (story.userId.toString() !== req.user.userId) {
+      return res.status(403).json({ 
+        message: 'Seul l\'auteur peut supprimer sa story' 
+      });
+    }
+
+    // Supprimer le média de Cloudinary si présent
+    if (story.cloudinaryPublicId) {
+      try {
+        console.log('🗑️ Suppression du média Cloudinary:', story.cloudinaryPublicId);
+        await deleteFromCloudinary(story.cloudinaryPublicId);
+        console.log('✅ Média supprimé de Cloudinary');
+      } catch (cloudinaryError) {
+        console.error('❌ Erreur suppression Cloudinary:', cloudinaryError);
+        // Ne pas bloquer la suppression de la story si Cloudinary échoue
+      }
+    }
+
+    // Supprimer la story de la base de données
+    await Story.findByIdAndDelete(req.params.id);
+    console.log('✅ Story supprimée de la base de données');
+
+    // Notifier via WebSocket que la story a été supprimée
+    broadcastToAll({
+      type: 'story_deleted',
+      storyId: req.params.id,
+      userId: req.user.userId
+    });
+
+    res.json({
+      success: true,
+      message: 'Story supprimée avec succès'
+    });
+  } catch (err) {
+    console.error('Erreur suppression story:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la suppression de la story',
+      error: err.message 
+    });
+  }
+});
+
 // ========================================
 // ROUTES : GROUP CHAT
 // ========================================

@@ -1575,25 +1575,36 @@ class ApiService {
   // Supprimer une story
   static Future<Map<String, dynamic>> deleteStory(String token, String storyId) async {
     await _ensureInitialized();
+    debugPrint('🗑️ API_SERVICE: deleteStory appelée avec storyId: $storyId');
+    debugPrint('🔑 API_SERVICE: Token length: ${token.length}');
+    debugPrint('🌐 API_SERVICE: URL complète: $baseUrl$apiPrefix/stories/$storyId');
+    
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl$apiPrefix/stories/$storyId'),
         headers: _authHeaders(token),
       );
 
+      debugPrint('📡 API_SERVICE: Status code: ${response.statusCode}');
+      debugPrint('📡 API_SERVICE: Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         try {
           final data = json.decode(response.body);
+          debugPrint('✅ API_SERVICE: Suppression réussie, data: $data');
           return data;
         } catch (e) {
           // Si le parsing JSON échoue mais que le statut est 200, considérer comme succès
+          debugPrint('⚠️ API_SERVICE: Parsing JSON échoué, mais status 200: $e');
           return {'success': true, 'message': 'Story supprimée'};
         }
       } else {
         final data = json.decode(response.body);
+        debugPrint('❌ API_SERVICE: Erreur ${response.statusCode}: ${data['message']}');
         throw Exception(data['message'] ?? 'Erreur de suppression');
       }
     } catch (e) {
+      debugPrint('❌ API_SERVICE: Exception générale: $e');
       if (e is Exception) rethrow;
       throw Exception('Erreur de connexion: $e');
     }

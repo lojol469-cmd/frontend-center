@@ -169,11 +169,14 @@ class _StoryViewPageState extends State<StoryViewPage> {
     }
     
     final storyId = widget.stories[index]['_id'];
-    debugPrint('🗑️ Suppression de la story: $storyId (index: $index)');
+    debugPrint('🗑️ STORY_VIEW_PAGE: Suppression de la story: $storyId (index: $index)');
+    debugPrint('🔑 STORY_VIEW_PAGE: Token disponible: ${widget.token.isNotEmpty}');
+    debugPrint('🔑 STORY_VIEW_PAGE: Token length: ${widget.token.length}');
     
     try {
+      debugPrint('📡 STORY_VIEW_PAGE: Appel de ApiService.deleteStory...');
       await ApiService.deleteStory(widget.token, storyId);
-      debugPrint('✅ Story supprimée du serveur');
+      debugPrint('✅ STORY_VIEW_PAGE: Story supprimée du serveur');
       
       if (!mounted) return;
       

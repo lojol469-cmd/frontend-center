@@ -514,6 +514,10 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
 
     if (token == null) return;
 
+    debugPrint('🗑️ ALL_STORIES_PAGE: Suppression de la story: $storyId');
+    debugPrint('🔑 ALL_STORIES_PAGE: Token disponible: ${token.isNotEmpty}');
+    debugPrint('🔑 ALL_STORIES_PAGE: Token length: ${token.length}');
+
     // Demander confirmation
     final confirmed = await showDialog<bool>(
       context: context,
@@ -546,8 +550,9 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     if (confirmed != true) return;
 
     try {
-      debugPrint('🗑️ Suppression de la story: $storyId');
+      debugPrint('📡 ALL_STORIES_PAGE: Appel de ApiService.deleteStory...');
       await ApiService.deleteStory(token, storyId);
+      debugPrint('✅ ALL_STORIES_PAGE: Suppression réussie');
       
       if (mounted) {
         // Recharger les stories
@@ -568,7 +573,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
         );
       }
     } catch (e) {
-      debugPrint('❌ Erreur suppression story: $e');
+      debugPrint('❌ ALL_STORIES_PAGE: Erreur suppression story: $e');
       if (mounted) {
         messenger.showSnackBar(
           SnackBar(
