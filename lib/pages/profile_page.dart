@@ -351,8 +351,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _showEditNameDialog(BuildContext context, AppProvider appProvider) async {
-
   Future<void> _showChangePasswordDialog(BuildContext context, AppProvider appProvider) async {
     final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
@@ -477,51 +475,6 @@ class _ProfilePageState extends State<ProfilePage> {
       }
       debugPrint('Erreur changement mot de passe: $e');
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: (context, appProvider, child) {
-        final user = appProvider.currentUser;
-
-        return Scaffold(
-          body: ImageBackground(
-            imagePath: _selectedImage,
-            opacity: 0.30, // Réduit pour éviter le voile blanc
-            withGradient: false, // Désactivé pour clarté maximale
-            child: SafeArea(
-              bottom: false, // Ne pas appliquer SafeArea en bas
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(
-                  left: 20,
-                  right: 20,
-                  top: 20,
-                  bottom: 100, // Padding fixe pour éviter l'overflow
-                ),
-                child: Column(
-                  children: [
-                    _buildProfileHeader(context, user),
-                    const SizedBox(height: 16), // Réduit de 24 à 16
-                    _buildQuickStats(context, appProvider),
-                    const SizedBox(height: 16), // Réduit de 24 à 16
-                    _buildStorageSection(), // Section de stockage
-                    const SizedBox(height: 16),
-                    _buildPublicationsManagementSection(), // Section de gestion des publications
-                    const SizedBox(height: 16), // Réduit de 24 à 16
-                    const ThemeSelector(), // Sélecteur de thème
-                    const SizedBox(height: 16), // Réduit de 24 à 16
-                    _buildSettings(context, appProvider),
-                    const SizedBox(height: 16), // Réduit de 24 à 16
-                    _buildLogoutButton(context, appProvider),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
   }
 
   Widget _buildProfileHeader(BuildContext context, Map<String, dynamic>? user) {
@@ -1909,6 +1862,51 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        final user = appProvider.currentUser;
+
+        return Scaffold(
+          body: ImageBackground(
+            imagePath: _selectedImage,
+            opacity: 0.30, // Réduit pour éviter le voile blanc
+            withGradient: false, // Désactivé pour clarté maximale
+            child: SafeArea(
+              bottom: false, // Ne pas appliquer SafeArea en bas
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 20,
+                  bottom: 100, // Padding fixe pour éviter l'overflow
+                ),
+                child: Column(
+                  children: [
+                    _buildProfileHeader(context, user),
+                    const SizedBox(height: 16), // Réduit de 24 à 16
+                    _buildQuickStats(context, appProvider),
+                    const SizedBox(height: 16), // Réduit de 24 à 16
+                    _buildStorageSection(), // Section de stockage
+                    const SizedBox(height: 16),
+                    _buildPublicationsManagementSection(), // Section de gestion des publications
+                    const SizedBox(height: 16), // Réduit de 24 à 16
+                    const ThemeSelector(), // Sélecteur de thème
+                    const SizedBox(height: 16), // Réduit de 24 à 16
+                    _buildSettings(context, appProvider),
+                    const SizedBox(height: 16), // Réduit de 24 à 16
+                    _buildLogoutButton(context, appProvider),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,11 +1,9 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
-import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../main.dart';
@@ -209,7 +207,7 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
 
         // Dessiner l'empreinte avec transparence
         final fingerprintPaint = Paint()
-          ..color = Colors.black.withOpacity(0.3)
+          ..color = Colors.black.withValues(alpha: 0.3)
           ..blendMode = BlendMode.multiply;
 
         // Positionner l'empreinte en bas à droite
@@ -232,7 +230,7 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
         debugPrint('Erreur chargement empreinte: $e');
         // Dessiner une empreinte simple si l'image n'est pas disponible
         final simpleFingerprintPaint = Paint()
-          ..color = Colors.black.withOpacity(0.2);
+          ..color = Colors.black.withValues(alpha: 0.2);
         canvas.drawCircle(Offset(size.width - 50, size.height - 50), 25, simpleFingerprintPaint);
       }
 
@@ -391,8 +389,8 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: _authMessage.contains('réussie')
-                                    ? Colors.green.withOpacity(0.1)
-                                    : Colors.red.withOpacity(0.1),
+                                    ? Colors.green.withValues(alpha: 0.1)
+                                    : Colors.red.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: _authMessage.contains('réussie')
@@ -460,7 +458,7 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
+                                    color: Colors.black.withValues(alpha: 0.2),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   ),
