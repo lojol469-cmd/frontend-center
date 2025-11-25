@@ -9,7 +9,7 @@ import '../components/gradient_button.dart';
 import '../components/image_background.dart';
 import '../components/theme_selector.dart';
 import '../theme/theme_provider.dart';
-import '../utils/background_image_manager.dart';
+import '../pages/setraf_id_card_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -25,7 +25,6 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isUploadingImage = false;
   final ImagePicker _picker = ImagePicker();
   late String _selectedImage;
-  final BackgroundImageManager _imageManager = BackgroundImageManager();
   
   // Statistiques de stockage
   Map<String, dynamic>? _storageInfo;
@@ -39,7 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _selectedImage = _imageManager.getImageForPage('profile'); // Image élégante
+    _selectedImage = 'assets/images/background_profile.jpg'; // Image par défaut
     _loadUserStats();
     _loadStorageInfo();
     _loadMyPublications();
@@ -343,65 +342,16 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _showEditNameDialog(BuildContext context, AppProvider appProvider) async {
-    final nameController = TextEditingController(text: appProvider.currentUser?['name'] ?? '');
-    final token = appProvider.accessToken;
-
-    if (token == null) return;
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Modifier le nom', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: nameController,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            labelText: 'Nouveau nom',
-            labelStyle: const TextStyle(color: Colors.white70),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF00D4FF)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF00D4FF), width: 2),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler', style: TextStyle(color: Colors.white70)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Enregistrer', style: TextStyle(color: Color(0xFF00D4FF))),
-          ),
-        ],
+  void _navigateToSetrafCard(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SetrafIdCardPage(),
       ),
     );
-
-    if (result != true || nameController.text.trim().isEmpty) return;
-
-    try {
-      final response = await ApiService.updateUserName(token, nameController.text.trim());
-
-      if (mounted) {
-        // Mettre à jour l'utilisateur dans AppProvider
-        final updatedUser = response['user'] as Map<String, dynamic>;
-        appProvider.setAuthenticated(true, token: token, user: updatedUser);
-
-        _showMessage('Nom mis à jour !');
-      }
-    } catch (e) {
-      if (mounted) {
-        _showMessage('Erreur: $e');
-      }
-      debugPrint('Erreur mise à jour nom: $e');
-    }
   }
+
+  Future<void> _showEditNameDialog(BuildContext context, AppProvider appProvider) async {
 
   Future<void> _showChangePasswordDialog(BuildContext context, AppProvider appProvider) async {
     final currentPasswordController = TextEditingController();
@@ -823,10 +773,10 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               _buildSettingItem(
                 context,
-                icon: Icons.edit_rounded,
-                title: 'Modifier le nom',
-                subtitle: 'Changer votre nom d\'affichage',
-                onTap: () => _showEditNameDialog(context, appProvider),
+                icon: Icons.fingerprint_rounded,
+                title: 'Carte SETRAF',
+                subtitle: 'Générer votre carte d\'identité biométrique',
+                onTap: () => _navigateToSetrafCard(context),
               ),
               _buildSettingItem(
                 context,

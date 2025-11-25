@@ -20,6 +20,7 @@ import 'create/create_employee_page.dart';
 import 'comments_page.dart';
 import 'private_chat_notifications_page.dart';
 import 'private_chat_page.dart';
+import 'setraf_landing_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -234,9 +235,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 final isSmallScreen = constraints.maxWidth < 360 || constraints.maxHeight < 640;
                 final isVerySmallScreen = constraints.maxWidth < 320 || constraints.maxHeight < 568;
                 
+                // Calculer la hauteur de la BottomNavigationBar (environ 56-80px selon la plateforme)
+                // et ajouter le padding de safe area
+                final bottomNavBarHeight = isVerySmallScreen ? 56 : isSmallScreen ? 60 : 64;
+                final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+                final totalBottomOffset = bottomNavBarHeight + safeAreaBottom + (isVerySmallScreen ? 8 : isSmallScreen ? 12 : 16);
+                
                 return Container(
+                  margin: EdgeInsets.only(bottom: totalBottomOffset),
                   padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).padding.bottom + (isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16),
+                    bottom: isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16,
                     left: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24,
                     right: isVerySmallScreen ? 16 : isSmallScreen ? 20 : 24,
                     top: isVerySmallScreen ? 12 : isSmallScreen ? 14 : 16,
@@ -426,63 +434,73 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   Row(
                     children: [
                       // Logo SETRAF dans un cercle avec badge de notification
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: buttonSize,
-                            height: buttonSize,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: themeProvider.gradient,
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SetrafLandingPage(),
                             ),
-                            padding: const EdgeInsets.all(8),
-                            child: ClipOval(
-                              child: Image.asset(
-                                'assets/images/app_logo.png',
-                                fit: BoxFit.contain,
+                          );
+                        },
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: buttonSize,
+                              height: buttonSize,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: themeProvider.gradient,
                               ),
-                            ),
-                          ),
-                          // Badge de notification style TikTok/Facebook
-                          if (_notificationsCount > 0)
-                            Positioned(
-                              right: -3,
-                              top: -3,
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 6,
-                                  vertical: isVerySmallScreen ? 2 : isSmallScreen ? 2.5 : 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [themeProvider.secondaryColor, themeProvider.accentColor],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12),
-                                  border: Border.all(
-                                    color: themeProvider.surfaceColor,
-                                    width: isVerySmallScreen ? 2 : isSmallScreen ? 2.2 : 2.5,
-                                  ),
-                                ),
-                                constraints: BoxConstraints(
-                                  minWidth: isVerySmallScreen ? 18 : isSmallScreen ? 20 : 22,
-                                  minHeight: isVerySmallScreen ? 18 : isSmallScreen ? 20 : 22,
-                                ),
-                                child: Text(
-                                  _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
-                                  style: TextStyle(
-                                    color: themeProvider.isDarkMode ? Colors.white : Colors.white,
-                                    fontSize: isVerySmallScreen ? 9 : isSmallScreen ? 10 : 11,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.2,
-                                  ),
-                                  textAlign: TextAlign.center,
+                              padding: const EdgeInsets.all(8),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/images/app_logo.png',
+                                  fit: BoxFit.contain,
                                 ),
                               ),
                             ),
-                        ],
+                            // Badge de notification style TikTok/Facebook
+                            if (_notificationsCount > 0)
+                              Positioned(
+                                right: -3,
+                                top: -3,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isVerySmallScreen ? 4 : isSmallScreen ? 5 : 6,
+                                    vertical: isVerySmallScreen ? 2 : isSmallScreen ? 2.5 : 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [themeProvider.secondaryColor, themeProvider.accentColor],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(isVerySmallScreen ? 10 : isSmallScreen ? 11 : 12),
+                                    border: Border.all(
+                                      color: themeProvider.surfaceColor,
+                                      width: isVerySmallScreen ? 2 : isSmallScreen ? 2.2 : 2.5,
+                                    ),
+                                  ),
+                                  constraints: BoxConstraints(
+                                    minWidth: isVerySmallScreen ? 18 : isSmallScreen ? 20 : 22,
+                                    minHeight: isVerySmallScreen ? 18 : isSmallScreen ? 20 : 22,
+                                  ),
+                                  child: Text(
+                                    _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
+                                    style: TextStyle(
+                                      color: themeProvider.isDarkMode ? Colors.white : Colors.white,
+                                      fontSize: isVerySmallScreen ? 9 : isSmallScreen ? 10 : 11,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.2,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                       SizedBox(width: spacing),
                       Expanded(

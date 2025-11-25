@@ -7,6 +7,7 @@ import '../components/custom_text_field.dart';
 import '../components/connection_status.dart';
 import '../components/image_background.dart';
 import '../utils/background_image_manager.dart';
+import 'setraf_landing_page.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -122,34 +123,44 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   Widget _buildHeader() {
     return Column(
       children: [
-        Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            border: Border.all(
-              color: const Color(0xFF00FF88),
-              width: 3,
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SetrafLandingPage(),
+              ),
+            );
+          },
+          child: Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              border: Border.all(
+                color: const Color(0xFF00FF88),
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                  blurRadius: 25,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00FF88).withValues(alpha: 0.3),
-                blurRadius: 25,
-                offset: const Offset(0, 8),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Image.asset(
+                'assets/images/app_logo.png',
+                fit: BoxFit.contain,
               ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Image.asset(
-              'assets/images/app_logo.png',
-              fit: BoxFit.contain,
             ),
           ),
         ),
