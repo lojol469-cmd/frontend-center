@@ -156,17 +156,23 @@ class _ProfilePageState extends State<ProfilePage> {
       debugPrint('🆔 Carte ID reçue: ${result['success']}');
 
       if (mounted && result['success'] == true) {
+        // Mettre à jour le Provider avec les données de la carte
+        appProvider.setVirtualIdCard(result['card']);
         setState(() {
           _virtualIDCard = result['card'];
           _isLoadingIDCard = false;
         });
       } else {
+        // Pas de carte trouvée, mettre à jour le Provider avec null
+        appProvider.setVirtualIdCard(null);
         if (mounted) {
           setState(() => _isLoadingIDCard = false);
         }
       }
     } catch (e) {
       debugPrint('❌ Erreur chargement carte ID: $e');
+      // En cas d'erreur, mettre à jour le Provider avec null
+      appProvider.setVirtualIdCard(null);
       if (mounted) {
         setState(() => _isLoadingIDCard = false);
       }
@@ -518,7 +524,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Widget _buildProfileHeader(BuildContext context, Map<String, dynamic>? user) {
+  Widget _buildProfileHeader(BuildContext context, Map<String, dynamic>? user, AppProvider appProvider) {
     final profileImage = user?['profileImage'] ?? '';
     final hasImage = profileImage.isNotEmpty;
 
@@ -713,7 +719,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      _virtualIDCard?['cardData']?['idNumber'] ?? 'ID inconnu',
+                      appProvider.virtualIdCard?['cardData']?['idNumber'] ?? 'ID inconnu',
                       style: const TextStyle(
                         color: Color(0xFF00FF88),
                         fontSize: 12,
@@ -2028,7 +2034,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 child: Column(
                   children: [
-                    _buildProfileHeader(context, user),
+                    _buildProfileHeader(context, user, appProvider),
                     const SizedBox(height: 16), // Réduit de 24 à 16
                     _buildQuickStats(context, appProvider),
                     const SizedBox(height: 16), // Réduit de 24 à 16

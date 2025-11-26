@@ -208,6 +208,7 @@ class AppProvider extends ChangeNotifier {
   final WebSocketService _wsService = WebSocketService();
   int _unreadMessagesCount = 0;
   bool _hasUnreadNotifications = false;
+  Map<String, dynamic>? _virtualIdCard;
 
   int get currentIndex => _currentIndex;
   bool get isAuthenticated => _isAuthenticated;
@@ -217,6 +218,7 @@ class AppProvider extends ChangeNotifier {
   Stream<Map<String, dynamic>> get webSocketStream => _wsService.stream;
   int get unreadMessagesCount => _unreadMessagesCount;
   bool get hasUnreadNotifications => _hasUnreadNotifications;
+  Map<String, dynamic>? get virtualIdCard => _virtualIdCard;
 
   // Clés pour SharedPreferences
   static const String _keyIsAuthenticated = 'is_authenticated';
@@ -371,5 +373,18 @@ class AppProvider extends ChangeNotifier {
           break;
       }
     });
+  }
+
+  // Méthodes pour gérer la carte ID virtuelle
+  void setVirtualIdCard(Map<String, dynamic>? card) {
+    _virtualIdCard = card;
+    notifyListeners();
+    debugPrint('🆔 Carte ID virtuelle mise à jour: ${card != null ? 'présente' : 'null'}');
+  }
+
+  void clearVirtualIdCard() {
+    _virtualIdCard = null;
+    notifyListeners();
+    debugPrint('🆔 Carte ID virtuelle supprimée');
   }
 }

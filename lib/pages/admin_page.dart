@@ -489,7 +489,18 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
                   ),
                 )
               else
-                ...activeUsers.map((user) => _buildUserItem(context, user, appProvider)),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 400),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    physics: const ClampingScrollPhysics(),
+                    itemCount: activeUsers.length,
+                    itemBuilder: (context, index) {
+                      final user = activeUsers[index];
+                      return _buildUserItem(context, user, appProvider);
+                    },
+                  ),
+                ),
             ],
           ),
         ),
@@ -558,7 +569,18 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
                   ),
                 ),
                 const SizedBox(height: 20),
-                ...blockedUsers.map((user) => _buildBlockedUserItem(context, user, appProvider)),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    physics: const ClampingScrollPhysics(),
+                    itemCount: blockedUsers.length,
+                    itemBuilder: (context, index) {
+                      final user = blockedUsers[index];
+                      return _buildBlockedUserItem(context, user, appProvider);
+                    },
+                  ),
+                ),
               ],
             ),
           ),
@@ -1013,7 +1035,18 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
               ),
             )
           else
-            ..._employees.map((employee) => _buildEmployeeItem(context, employee, appProvider)),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 400),
+              child: ListView.builder(
+                shrinkWrap: true,
+                physics: const ClampingScrollPhysics(),
+                itemCount: _employees.length,
+                itemBuilder: (context, index) {
+                  final employee = _employees[index];
+                  return _buildEmployeeItem(context, employee, appProvider);
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -1065,14 +1098,18 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
               ),
             )
           else
-            SizedBox(
-              height: 300,
+            Container(
+              constraints: const BoxConstraints(maxHeight: 500),
               child: ListView.builder(
-                scrollDirection: Axis.horizontal,
+                shrinkWrap: true,
+                physics: const ClampingScrollPhysics(),
                 itemCount: _idCards.length,
                 itemBuilder: (context, index) {
                   final idCard = _idCards[index];
-                  return _buildIDCardItem(context, idCard, appProvider);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: _buildIDCardItem(context, idCard, appProvider),
+                  );
                 },
               ),
             ),
@@ -1215,8 +1252,8 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
     final bool isActive = idCard['isActive'] ?? true;
 
     return Container(
-      width: 280,
-      margin: const EdgeInsets.only(right: 16),
+      width: double.infinity,
+      margin: const EdgeInsets.only(right: 0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
