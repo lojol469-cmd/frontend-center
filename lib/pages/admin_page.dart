@@ -18,7 +18,7 @@ class AdminPage extends StatefulWidget {
   State<AdminPage> createState() => _AdminPageState();
 }
 
-class _AdminPageState extends State<AdminPage> {
+class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
   late String _selectedImage;
   bool _isLoadingStats = false;
   bool _isLoadingUsers = false;
@@ -36,6 +36,7 @@ class _AdminPageState extends State<AdminPage> {
     super.initState();
     _selectedImage = 'assets/images/pexels-francesco-ungaro-2325447.jpg'; // Image existante
     _loadAdminData();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   // Helper pour transformer les URLs relatives en URLs complètes
@@ -56,8 +57,17 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _isDisposed = true;
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Recharger les données quand l'app revient au premier plan
+      _loadAdminData();
+    }
   }
 
   Future<void> _loadAdminData() async {

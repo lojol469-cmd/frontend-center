@@ -389,7 +389,7 @@ class _ProfilePageState extends State<ProfilePage> {
       MaterialPageRoute(
         builder: (context) => const SetrafIdCardPage(),
       ),
-    );
+    ).then((_) => _loadVirtualIDCard());
   }
 
   Future<void> _showChangePasswordDialog(BuildContext context, AppProvider appProvider) async {
