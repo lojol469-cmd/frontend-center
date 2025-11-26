@@ -533,11 +533,6 @@ class _AdminPageState extends State<AdminPage> {
     final String profileImage = _getFullUrl(rawProfileImage);
 
     // Logs réduits pour éviter la duplication
-    if (profileImage.isNotEmpty) {
-      debugPrint('👤 User: $name (avec image)');
-    } else {
-      debugPrint('👤 User: $name (sans image)');
-    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -993,7 +988,6 @@ class _AdminPageState extends State<AdminPage> {
     final String faceImage = _getFullUrl(rawFaceImage);
 
     // Log réduit pour éviter la pollution de console
-    debugPrint('👷 Employee: $name');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

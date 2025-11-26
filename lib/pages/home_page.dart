@@ -576,7 +576,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             : null;
         
         // Debug: afficher les infos utilisateur
-        debugPrint('👤 User info: name=$userName, avatar=$avatarUrl');
         
         return FuturisticCard(
           child: Container(

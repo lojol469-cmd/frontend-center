@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:local_auth/local_auth.dart';
 import '../main.dart';
 import '../api_service.dart';
 import '../components/gradient_button.dart';
@@ -21,10 +22,14 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   final _passwordController = TextEditingController();
   final _otpController = TextEditingController();
   final _nameController = TextEditingController();
+  final _idCardController = TextEditingController();
+  final LocalAuthentication _localAuth = LocalAuthentication();
   
   bool _isLogin = true;
   bool _isLoading = false;
   bool _showOtpField = false;
+  bool _showFaceIDOption = false;
+  bool _canUseBiometrics = false;
   String _message = '';
   late String _selectedImage;
   final BackgroundImageManager _imageManager = BackgroundImageManager();
@@ -38,6 +43,8 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     super.initState();
     // Sélectionner une image pour l'authentification
     _selectedImage = _imageManager.getImageForPage('auth');
+    _checkBiometricSupport();
+    
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -62,6 +69,22 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     _animationController.forward();
   }
 
+  Future<void> _checkBiometricSupport() async {
+    try {
+      final canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
+      final canAuthenticate = await _localAuth.isDeviceSupported();
+      
+      setState(() {
+        _canUseBiometrics = canAuthenticate && canAuthenticateWithBiometrics;
+      });
+    } catch (e) {
+      debugPrint('❌ Erreur vérification biométrique: $e');
+      setState(() {
+        _canUseBiometrics = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -69,6 +92,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     _passwordController.dispose();
     _otpController.dispose();
     _nameController.dispose();
+    _idCardController.dispose();
     super.dispose();
   }
 
@@ -211,21 +235,36 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
             enabled: !_isLoading,
           ),
           const SizedBox(height: 16),
+          // Option Face ID pour inscription rapide
+          if (_canUseBiometrics)
+            _buildFaceIDOption(),
         ],
-        CustomTextField(
-          controller: _emailController,
-          label: 'Email',
-          icon: Icons.email_rounded,
-          keyboardType: TextInputType.emailAddress,
-          enabled: !_isLoading,
-        ),
-        if (!_showOtpField) ...[
+        if (!_showFaceIDOption) ...[
+          CustomTextField(
+            controller: _emailController,
+            label: 'Email',
+            icon: Icons.email_rounded,
+            keyboardType: TextInputType.emailAddress,
+            enabled: !_isLoading,
+          ),
+          if (!_showOtpField) ...[
+            const SizedBox(height: 16),
+            CustomTextField(
+              controller: _passwordController,
+              label: 'Mot de passe',
+              icon: Icons.lock_rounded,
+              obscureText: true,
+              enabled: !_isLoading,
+            ),
+          ],
+        ],
+        if (_showFaceIDOption) ...[
           const SizedBox(height: 16),
           CustomTextField(
-            controller: _passwordController,
-            label: 'Mot de passe',
-            icon: Icons.lock_rounded,
-            obscureText: true,
+            controller: _idCardController,
+            label: 'Numéro de carte d\'identité',
+            icon: Icons.badge_rounded,
+            keyboardType: TextInputType.text,
             enabled: !_isLoading,
           ),
         ],
@@ -244,7 +283,11 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           onPressed: _isLoading ? null : _handleAuth,
           isLoading: _isLoading,
           child: Text(
-            _showOtpField ? 'Vérifier OTP' : (_isLogin ? 'Se connecter' : 'S\'inscrire'),
+            _showOtpField 
+              ? 'Vérifier OTP' 
+              : (_showFaceIDOption 
+                ? 'Vérifier Face ID' 
+                : (_isLogin ? 'Se connecter' : 'S\'inscrire')),
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -253,6 +296,98 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFaceIDOption() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF00FF88).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF00FF88),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.face_rounded,
+                color: const Color(0xFF00FF88),
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Inscription rapide avec Face ID',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Utilisez votre carte d\'identité SETRAF pour une inscription rapide et sécurisée',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: _isLoading ? null : () {
+              setState(() {
+                _showFaceIDOption = !_showFaceIDOption;
+                if (_showFaceIDOption) {
+                  _emailController.clear();
+                  _passwordController.clear();
+                }
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: _showFaceIDOption 
+                  ? Colors.white 
+                  : const Color(0xFF00FF88),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFF00FF88),
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _showFaceIDOption ? Icons.close_rounded : Icons.fingerprint_rounded,
+                    color: _showFaceIDOption ? const Color(0xFF00FF88) : Colors.black,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _showFaceIDOption ? 'Annuler' : 'Utiliser Face ID',
+                    style: TextStyle(
+                      color: _showFaceIDOption ? const Color(0xFF00FF88) : Colors.black,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -336,10 +471,78 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   Future<void> _handleAuth() async {
     if (_showOtpField) {
       await _verifyOtp();
+    } else if (_showFaceIDOption) {
+      await _handleFaceIDRegistration();
     } else if (_isLogin) {
       await _login();
     } else {
       await _register();
+    }
+  }
+
+  Future<void> _handleFaceIDRegistration() async {
+    final name = _nameController.text.trim();
+    final idCard = _idCardController.text.trim();
+
+    if (name.isEmpty || idCard.isEmpty) {
+      setState(() => _message = 'Veuillez remplir tous les champs');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _message = '';
+    });
+
+    try {
+      // Étape 1: Authentification biométrique
+      debugPrint('🔐 Démarrage authentification Face ID...');
+      final didAuthenticate = await _localAuth.authenticate(
+        localizedReason: 'Authentifiez-vous pour créer votre compte',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+
+      if (!didAuthenticate) {
+        setState(() => _message = 'Authentification Face ID échouée');
+        return;
+      }
+
+      debugPrint('✅ Face ID authentifié - Vérification carte d\'identité...');
+
+      // Étape 2: Vérifier si la carte d'identité existe via API
+      final response = await ApiService.verifyIdCard(idCard);
+      
+      if (response['success'] == true && response['exists'] == true) {
+        final userData = response['user'];
+        debugPrint('✅ Carte d\'identité trouvée: ${userData['email']}');
+        
+        // Étape 3: Inscription automatique avec les données de la carte
+        final registerResult = await ApiService.registerWithFaceID(
+          email: userData['email'],
+          name: name,
+          idCard: idCard,
+        );
+
+        if (registerResult['success'] == true) {
+          setState(() {
+            _showOtpField = true;
+            _emailController.text = userData['email'];
+            _message = registerResult['message'] ?? 'Code OTP envoyé à ${userData['email']}';
+          });
+        } else {
+          setState(() => _message = registerResult['message'] ?? 'Erreur lors de l\'inscription');
+        }
+      } else {
+        setState(() => _message = 'Carte d\'identité non trouvée. Veuillez contacter l\'administration.');
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur inscription Face ID: $e');
+      setState(() => _message = 'Erreur: $e');
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 

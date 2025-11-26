@@ -121,6 +121,9 @@ dependencies:
   # PDF Viewer
   pdfx: ^2.6.0
 
+  # PDF Generation
+  pdf: ^3.10.8
+
   # Biometric Authentication
   local_auth: ^2.3.0
 

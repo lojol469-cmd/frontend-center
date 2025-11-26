@@ -342,6 +342,60 @@ class ApiService {
     }
   }
 
+  // Vérifier l'existence d'une carte d'identité
+  static Future<Map<String, dynamic>> verifyIdCard(String idCard) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/auth/verify-id-card'),
+        headers: _defaultHeaders,
+        body: json.encode({
+          'idCard': idCard,
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Carte d\'identité non trouvée');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Inscription avec Face ID et carte d'identité
+  static Future<Map<String, dynamic>> registerWithFaceID({
+    required String email,
+    required String name,
+    required String idCard,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/auth/register-faceid'),
+        headers: _defaultHeaders,
+        body: json.encode({
+          'email': email,
+          'name': name,
+          'idCard': idCard,
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur d\'inscription');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
   // Rafraîchir le token
   static Future<Map<String, dynamic>> refreshToken(String refreshToken) async {
     try {
