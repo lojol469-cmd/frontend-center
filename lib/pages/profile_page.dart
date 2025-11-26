@@ -712,9 +712,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       size: 14,
                     ),
                     const SizedBox(width: 6),
-                    const Text(
-                      'Carte SETRAF Active',
-                      style: TextStyle(
+                    Text(
+                      _virtualIDCard?['cardData']?['idNumber'] ?? 'ID inconnu',
+                      style: const TextStyle(
                         color: Color(0xFF00FF88),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
