@@ -946,15 +946,30 @@ app.post('/api/auth/register-faceid', async (req, res) => {
 // Connexion automatique avec carte virtuelle (lorsque la carte est trouvée par email)
 app.post('/api/auth/login-virtual-card', async (req, res) => {
   console.log('\n=== CONNEXION AUTOMATIQUE AVEC CARTE VIRTUELLE ===');
-  const { email } = req.body;
-  console.log('Email:', email);
+  const { cardId } = req.body;
+  console.log('Card ID:', cardId);
 
   try {
-    // Chercher l'utilisateur par email
-    const user = await User.findOne({ email: email.toLowerCase() });
+    // Chercher la carte virtuelle par ID
+    const virtualCard = await VirtualIDCard.findOne({
+      'cardData.idNumber': cardId,
+      isActive: true,
+      verificationStatus: 'verified'
+    });
+
+    if (!virtualCard) {
+      console.log('❌ Aucune carte virtuelle active trouvée pour cet ID');
+      return res.status(404).json({
+        success: false,
+        message: 'Carte d\'identité virtuelle non trouvée ou inactive'
+      });
+    }
+
+    // Récupérer l'utilisateur associé
+    const user = await User.findById(virtualCard.userId);
 
     if (!user) {
-      console.log('❌ Utilisateur non trouvé');
+      console.log('❌ Utilisateur associé non trouvé');
       return res.status(404).json({
         success: false,
         message: 'Utilisateur non trouvé'
@@ -967,21 +982,6 @@ app.post('/api/auth/login-virtual-card', async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'Accès refusé - Compte désactivé'
-      });
-    }
-
-    // Vérifier que l'utilisateur a une carte virtuelle active et vérifiée
-    const virtualCard = await VirtualIDCard.findOne({
-      userId: user._id,
-      isActive: true,
-      verificationStatus: 'verified'
-    });
-
-    if (!virtualCard) {
-      console.log('❌ Aucune carte virtuelle active trouvée pour cet utilisateur');
-      return res.status(404).json({
-        success: false,
-        message: 'Aucune carte d\'identité virtuelle trouvée pour cet utilisateur'
       });
     }
 

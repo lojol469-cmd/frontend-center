@@ -425,14 +425,14 @@ class ApiService {
   }
 
   // Connexion automatique avec carte virtuelle (lorsque la carte est trouvée par email)
-  static Future<Map<String, dynamic>> loginWithVirtualCard(String email) async {
+  static Future<Map<String, dynamic>> loginWithVirtualCard(String cardId) async {
     await _ensureInitialized();
     try {
       final response = await http.post(
         Uri.parse('$baseUrl$apiPrefix/auth/login-virtual-card'),
         headers: _defaultHeaders,
         body: json.encode({
-          'email': email,
+          'cardId': cardId,
         }),
       );
 

@@ -648,7 +648,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
         if (shouldConnect == true) {
           // Procéder à la connexion automatique
           debugPrint('🔄 Connexion automatique en cours...');
-          final loginResult = await ApiService.loginWithVirtualCard(email);
+          final loginResult = await ApiService.loginWithVirtualCard(cardId);
 
           if (loginResult['success'] == true && loginResult.containsKey('accessToken')) {
             if (mounted) {
