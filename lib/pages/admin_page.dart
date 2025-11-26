@@ -5,6 +5,11 @@ import '../components/futuristic_card.dart';
 import '../components/gradient_button.dart';
 import '../components/image_background.dart';
 import '../api_service.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -18,9 +23,11 @@ class _AdminPageState extends State<AdminPage> {
   bool _isLoadingStats = false;
   bool _isLoadingUsers = false;
   bool _isLoadingEmployees = false;
+  bool _isLoadingIDCards = false;
   Map<String, dynamic>? _stats;
   List<dynamic> _users = [];
   List<dynamic> _employees = [];
+  List<dynamic> _idCards = [];
   String? _error;
   bool _isDisposed = false;
 
@@ -67,6 +74,7 @@ class _AdminPageState extends State<AdminPage> {
         _isLoadingStats = true;
         _isLoadingUsers = true;
         _isLoadingEmployees = true;
+        _isLoadingIDCards = true;
         _error = null;
       });
     }
@@ -82,6 +90,7 @@ class _AdminPageState extends State<AdminPage> {
           _isLoadingStats = false;
           _isLoadingUsers = false;
           _isLoadingEmployees = false;
+          _isLoadingIDCards = false;
         });
       }
       return;
@@ -147,6 +156,27 @@ class _AdminPageState extends State<AdminPage> {
         });
       }
     }
+
+    // Arrêter si le widget a été disposé
+    if (_isDisposed) return;
+
+    // Charger les cartes d'identité
+    try {
+      final idCardsData = await ApiService.getAllIDCards(token);
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _idCards = idCardsData['idCards'] ?? [];
+          _isLoadingIDCards = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement cartes d\'identité: $e');
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _isLoadingIDCards = false;
+        });
+      }
+    }
   }
 
   @override
@@ -194,6 +224,8 @@ class _AdminPageState extends State<AdminPage> {
                 _buildUserManagement(context, appProvider),
                 const SizedBox(height: 24),
                 _buildEmployeeManagement(context, appProvider),
+                const SizedBox(height: 24),
+                _buildIDCardsManagement(context, appProvider),
                 const SizedBox(height: 24),
                 _buildSystemControls(context, appProvider),
               ],
@@ -977,6 +1009,68 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
+  Widget _buildIDCardsManagement(BuildContext context, AppProvider appProvider) {
+    if (_isLoadingIDCards) {
+      return const FuturisticCard(
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFF9C27B0)),
+        ),
+      );
+    }
+
+    return FuturisticCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9C27B0).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.credit_card_rounded,
+                  color: Color(0xFF9C27B0),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'Cartes d\'Identité (${_idCards.length})',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (_idCards.isEmpty)
+            const Center(
+              child: Text(
+                'Aucune carte d\'identité',
+                style: TextStyle(color: Colors.white70),
+              ),
+            )
+          else
+            SizedBox(
+              height: 300,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _idCards.length,
+                itemBuilder: (context, index) {
+                  final idCard = _idCards[index];
+                  return _buildIDCardItem(context, idCard, appProvider);
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmployeeItem(BuildContext context, dynamic employee, AppProvider appProvider) {
     // ignore: unused_local_variable
     final String employeeId = employee['_id'] ?? employee['id'] ?? '';
@@ -1094,6 +1188,229 @@ class _AdminPageState extends State<AdminPage> {
                 size: 20,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIDCardItem(BuildContext context, dynamic idCard, AppProvider appProvider) {
+    final String cardNumber = idCard['cardNumber'] ?? '';
+    final String firstName = idCard['cardData']?['firstName'] ?? '';
+    final String lastName = idCard['cardData']?['lastName'] ?? '';
+    final String userName = idCard['user']?['name'] ?? 'Utilisateur inconnu';
+    final String photoUrl = _getFullUrl(idCard['cardData']?['photo'] ?? '');
+    final String issueDate = idCard['cardData']?['issueDate'] ?? '';
+    final String expiryDate = idCard['cardData']?['expiryDate'] ?? '';
+    final bool isActive = idCard['isActive'] ?? true;
+
+    return Container(
+      width: 280,
+      margin: const EdgeInsets.only(right: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isActive ? const Color(0xFF9C27B0).withValues(alpha: 0.3) : Colors.red.withValues(alpha: 0.3),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (isActive ? const Color(0xFF9C27B0) : Colors.red).withValues(alpha: 0.1),
+            blurRadius: 8,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header avec photo et statut
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: const Color(0xFF9C27B0),
+                child: photoUrl.isNotEmpty
+                    ? ClipOval(
+                        child: Image.network(
+                          photoUrl,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.person, color: Colors.white);
+                          },
+                        ),
+                      )
+                    : const Icon(Icons.person, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$firstName $lastName',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      userName,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isActive ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isActive ? Colors.green.withValues(alpha: 0.5) : Colors.red.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        isActive ? 'Active' : 'Inactive',
+                        style: TextStyle(
+                          color: isActive ? Colors.green : Colors.red,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Informations de la carte
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF9C27B0).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.credit_card,
+                      color: Color(0xFF9C27B0),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'N°: ${cardNumber.substring(cardNumber.length - 8)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (issueDate.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today,
+                        color: Color(0xFF9C27B0),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Émis: ${DateTime.parse(issueDate).toLocal().toString().split(' ')[0]}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (expiryDate.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.event_busy,
+                        color: Color(0xFF9C27B0),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Expire: ${DateTime.parse(expiryDate).toLocal().toString().split(' ')[0]}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const Spacer(),
+
+          // Boutons d'action
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _downloadIDCardPDF(context, idCard, appProvider),
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('PDF'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _shareIDCard(context, idCard, appProvider),
+                  icon: const Icon(Icons.share, size: 16),
+                  label: const Text('Partager'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00D4FF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1374,5 +1691,111 @@ class _AdminPageState extends State<AdminPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _downloadIDCardPDF(BuildContext context, dynamic idCard, AppProvider appProvider) async {
+    try {
+      if (!context.mounted) return;
+      _showMessage(context, 'Génération du PDF en cours...');
+
+      final pdf = pw.Document();
+
+      // Données de la carte
+      final cardNumber = idCard['cardNumber'] ?? '';
+      final firstName = idCard['cardData']?['firstName'] ?? '';
+      final lastName = idCard['cardData']?['lastName'] ?? '';
+      final dateOfBirth = idCard['cardData']?['dateOfBirth'] ?? '';
+      final placeOfBirth = idCard['cardData']?['placeOfBirth'] ?? '';
+      final nationality = idCard['cardData']?['nationality'] ?? '';
+      final idNumber = idCard['cardData']?['idNumber'] ?? '';
+      final issueDate = idCard['cardData']?['issueDate'] ?? '';
+      final expiryDate = idCard['cardData']?['expiryDate'] ?? '';
+      final userName = idCard['user']?['name'] ?? 'Utilisateur inconnu';
+
+      pdf.addPage(
+        pw.Page(
+          build: (pw.Context context) {
+            return pw.Container(
+              padding: const pw.EdgeInsets.all(20),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.blue, width: 2),
+                borderRadius: pw.BorderRadius.circular(10),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'CARTE D\'IDENTITÉ SETRAF',
+                    style: pw.TextStyle(
+                      fontSize: 24,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue,
+                    ),
+                  ),
+                  pw.SizedBox(height: 20),
+                  pw.Text('Numéro de carte: $cardNumber'),
+                  pw.Text('Nom: $firstName $lastName'),
+                  pw.Text('Utilisateur: $userName'),
+                  pw.Text('Date de naissance: $dateOfBirth'),
+                  pw.Text('Lieu de naissance: $placeOfBirth'),
+                  pw.Text('Nationalité: $nationality'),
+                  pw.Text('Numéro d\'identité: $idNumber'),
+                  pw.Text('Date d\'émission: $issueDate'),
+                  pw.Text('Date d\'expiration: $expiryDate'),
+                  pw.SizedBox(height: 20),
+                  pw.Text(
+                    'Cette carte est générée par l\'administration SETRAF',
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      color: PdfColors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+
+      // Sauvegarder le PDF
+      final output = await getTemporaryDirectory();
+      final file = File('${output.path}/carte_setraf_${cardNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf');
+      await file.writeAsBytes(await pdf.save());
+
+      if (!context.mounted) return;
+      _showMessage(context, 'PDF sauvegardé: ${file.path}');
+    } catch (e) {
+      debugPrint('Erreur génération PDF: $e');
+      if (!context.mounted) return;
+      _showMessage(context, 'Erreur lors de la génération du PDF: $e');
+    }
+  }
+
+  Future<void> _shareIDCard(BuildContext context, dynamic idCard, AppProvider appProvider) async {
+    try {
+      final cardNumber = idCard['cardNumber'] ?? '';
+      final firstName = idCard['cardData']?['firstName'] ?? '';
+      final lastName = idCard['cardData']?['lastName'] ?? '';
+      final userName = idCard['user']?['name'] ?? 'Utilisateur inconnu';
+
+      final shareText = '''
+Carte d'Identité SETRAF
+
+Numéro de carte: $cardNumber
+Nom: $firstName $lastName
+Utilisateur: $userName
+
+Générée par l'administration SETRAF
+''';
+
+      await Share.share(
+        shareText,
+        subject: 'Carte d\'Identité SETRAF - $firstName $lastName',
+      );
+    } catch (e) {
+      debugPrint('Erreur partage carte: $e');
+      if (!context.mounted) return;
+      _showMessage(context, 'Erreur lors du partage: $e');
+    }
   }
 }

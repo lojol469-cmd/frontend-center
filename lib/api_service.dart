@@ -2027,6 +2027,27 @@ class ApiService {
     }
   }
 
+  // Récupérer toutes les cartes d'identité (ADMIN)
+  static Future<Map<String, dynamic>> getAllIDCards(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/admin/id-cards'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération des cartes d\'identité');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
   // Récupérer les statistiques (accessible à tous les utilisateurs authentifiés)
   // Retourne des données selon les permissions (employés voient seulement publications)
   static Future<Map<String, dynamic>> getStats(String token) async {
