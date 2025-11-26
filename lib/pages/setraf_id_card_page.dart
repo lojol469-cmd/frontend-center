@@ -306,9 +306,10 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
       }
 
       // Préparer les données de la carte
+      final nameParts = user['name']?.split(' ') ?? [];
       final cardData = {
-        'firstName': user['name']?.split(' ')?.first ?? '',
-        'lastName': user['name']?.split(' ')?.skip(1)?.join(' ') ?? '',
+        'firstName': nameParts.isNotEmpty ? nameParts.first : '',
+        'lastName': nameParts.length > 1 ? nameParts.skip(1).join(' ') : '',
         'idNumber': 'SETRAF-${user['_id']?.substring(0, 8) ?? 'UNKNOWN'}',
         'email': user['email'] ?? '',
         'issueDate': DateTime.now().toIso8601String(),
