@@ -498,24 +498,175 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       final checkResult = await ApiService.checkUserHasVirtualIDCard(email);
 
       if (checkResult['success'] == true && checkResult['hasCard'] == true) {
-        // Carte trouvée - connexion automatique (déjà vérifié lors de la création)
-        debugPrint('✅ Carte trouvée - Connexion automatique pour ${checkResult['userName']}');
+        // Carte trouvée - afficher les informations et proposer connexion automatique
+        debugPrint('✅ Carte trouvée - Affichage des informations...');
 
-        // Générer un token de connexion automatique basé sur la carte trouvée
-        final loginResult = await ApiService.loginWithVirtualCard(email);
+        final cardData = checkResult['card'] ?? {};
+        final userName = checkResult['userName'] ?? 'Utilisateur';
+        final cardId = cardData['idNumber'] ?? 'N/A';
 
-        if (loginResult['success'] == true && loginResult.containsKey('accessToken')) {
-          if (mounted) {
-            final appProvider = Provider.of<AppProvider>(context, listen: false);
-            appProvider.setAuthenticated(
-              true,
-              token: loginResult['accessToken'],
-              user: loginResult['user'],
-            );
+        // Afficher un dialogue avec les informations de la carte
+        final shouldConnect = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                const Icon(
+                  Icons.verified_user_rounded,
+                  color: Color(0xFF00FF88),
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Carte d\'identité trouvée !',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00FF88).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.person_rounded,
+                            color: Color(0xFF00FF88),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Propriétaire: $userName',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.credit_card_rounded,
+                            color: Color(0xFF00FF88),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'ID Carte: $cardId',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.email_rounded,
+                            color: Color(0xFF00FF88),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Email: $email',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Une carte d\'identité SETRAF a été trouvée pour cet email. Voulez-vous vous connecter automatiquement ?',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                ),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context, true),
+                icon: const Icon(Icons.login_rounded, size: 18),
+                label: const Text('Connexion automatique'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00FF88),
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldConnect == true) {
+          // Procéder à la connexion automatique
+          debugPrint('🔄 Connexion automatique en cours...');
+          final loginResult = await ApiService.loginWithVirtualCard(email);
+
+          if (loginResult['success'] == true && loginResult.containsKey('accessToken')) {
+            if (mounted) {
+              final appProvider = Provider.of<AppProvider>(context, listen: false);
+              appProvider.setAuthenticated(
+                true,
+                token: loginResult['accessToken'],
+                user: loginResult['user'],
+              );
+            }
+            debugPrint('✅ Connexion automatique réussie');
+          } else {
+            setState(() => _message = loginResult['message'] ?? 'Erreur de connexion automatique');
           }
-          debugPrint('✅ Connexion automatique réussie');
         } else {
-          setState(() => _message = loginResult['message'] ?? 'Erreur de connexion automatique');
+          // Annuler - revenir au formulaire normal
+          setState(() {
+            _showFaceIDOption = false;
+            _message = 'Connexion automatique annulée. Veuillez vous connecter avec email/mot de passe.';
+          });
         }
       } else {
         // Pas de carte trouvée - proposer inscription ou connexion normale

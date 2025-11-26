@@ -661,7 +661,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             const SizedBox(height: 8),
-            // Indicateur de carte ID
+            // Indicateur de carte ID avec accès direct
             if (_isLoadingIDCard)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -699,65 +699,85 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               )
             else if (_virtualIDCard != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00FF88).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: const Color(0xFF00FF88).withValues(alpha: 0.3),
-                    width: 1,
+              InkWell(
+                onTap: () => _navigateToSetrafCard(context),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00FF88).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                      width: 1,
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.verified_user_rounded,
-                      color: Color(0xFF00FF88),
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      appProvider.virtualIdCard?['cardData']?['idNumber'] ?? 'ID inconnu',
-                      style: const TextStyle(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.verified_user_rounded,
                         color: Color(0xFF00FF88),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        size: 14,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Text(
+                        'Carte trouvée pour ${user?['email']?.split('@')[0] ?? 'cet email'}',
+                        style: const TextStyle(
+                          color: Color(0xFF00FF88),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: const Color(0xFF00FF88).withValues(alpha: 0.7),
+                        size: 12,
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFAA00).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: const Color(0xFFFFAA00).withValues(alpha: 0.3),
-                    width: 1,
+              InkWell(
+                onTap: () => _navigateToSetrafCard(context),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFAA00).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFFFFAA00).withValues(alpha: 0.3),
+                      width: 1,
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.credit_card_rounded,
-                      color: Color(0xFFFFAA00),
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'Carte SETRAF Non Générée',
-                      style: TextStyle(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.credit_card_rounded,
                         color: Color(0xFFFFAA00),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        size: 14,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Créer carte SETRAF',
+                        style: TextStyle(
+                          color: Color(0xFFFFAA00),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.add_rounded,
+                        color: const Color(0xFFFFAA00).withValues(alpha: 0.7),
+                        size: 12,
+                      ),
+                    ],
+                  ),
                 ),
               ),
           ],
