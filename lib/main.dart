@@ -9,6 +9,7 @@ import 'config/server_config.dart';
 import 'websocket_service.dart';
 import 'theme/theme_provider.dart';
 import 'components/notification_wrapper.dart';
+import 'api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,6 +27,13 @@ void main() async {
   // ✅ PRODUCTION MODE: Effacer le cache d'URL et forcer Render
   final prefs = await SharedPreferences.getInstance();
   await prefs.remove('api_base_url'); // Supprimer l'ancienne URL en cache
+  
+  // Nettoyer l'état interne de l'ApiService
+  ApiService.reset();
+  
+  // Mode Production : Connexion directe à Render (pas de détection IP)
+  debugPrint('🌐 Mode Production : ${ServerConfig.productionUrl}');
+  debugPrint('📡 Notifications via WebSocket + Notifications Locales');
   
   // Mode Production : Connexion directe à Render (pas de détection IP)
   debugPrint('🌐 Mode Production : ${ServerConfig.productionUrl}');

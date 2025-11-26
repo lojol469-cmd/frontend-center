@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'api_service.dart';
+import 'config/server_config.dart';
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
@@ -32,12 +33,14 @@ class WebSocketService {
     _isConnecting = true;
 
     try {
-      // Utiliser l'URL du serveur détecté par ApiService
-      final baseUrl = ApiService.baseUrl.replaceAll('http://', '').replaceAll('https://', '');
-      
-      // Déterminer le protocole WebSocket (wss pour HTTPS, ws pour HTTP)
-      final wsProtocol = ApiService.baseUrl.startsWith('https') ? 'wss' : 'ws';
-      final wsUrl = '$wsProtocol://$baseUrl';
+      // ✅ MODE PRODUCTION: Utiliser directement l'URL Render
+      final String wsUrl = ServerConfig.isProduction
+        ? 'wss://center-backend-v9rf.onrender.com'
+        : (() {
+            final baseUrl = ApiService.baseUrl.replaceAll('http://', '').replaceAll('https://', '');
+            final wsProtocol = ApiService.baseUrl.startsWith('https') ? 'wss' : 'ws';
+            return '$wsProtocol://$baseUrl';
+          })();
       
       debugPrint('🔌 Connexion WebSocket à $wsUrl...');
       

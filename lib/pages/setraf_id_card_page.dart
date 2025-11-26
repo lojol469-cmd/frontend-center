@@ -346,10 +346,15 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
       // Préparer les données de la carte
       final nameParts = user['name']?.split(' ') ?? [];
       final cardData = {
-        'firstName': nameParts.isNotEmpty ? nameParts.first : '',
+        'firstName': nameParts.isNotEmpty ? nameParts.first : 'Utilisateur',
         'lastName': nameParts.length > 1 ? nameParts.skip(1).join(' ') : '',
         'idNumber': 'SETRAF-${user['_id']?.substring(0, 8) ?? 'UNKNOWN'}',
         'email': user['email'] ?? '',
+        'dateOfBirth': DateTime(1990, 1, 1).toIso8601String(), // Date par défaut
+        'placeOfBirth': 'Non spécifié',
+        'nationality': 'Non spécifiée',
+        'address': 'Adresse non fournie',
+        'gender': 'M', // Par défaut masculin
         'issueDate': DateTime.now().toIso8601String(),
         'expiryDate': DateTime.now().add(const Duration(days: 365 * 10)).toIso8601String(),
       };
@@ -378,13 +383,15 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
         cardPdfFile: pdfFile,
       );
 
-      debugPrint('📡 Résultat API: $result');
+      debugPrint('📡 Résultat API complet: $result');
 
       if (result['success'] == true) {
         debugPrint('✅ Carte sauvegardée côté serveur');
         _showMessage('Carte SETRAF sauvegardée avec succès sur le serveur !');
       } else {
         debugPrint('⚠️ Échec sauvegarde serveur: ${result['message']}');
+        debugPrint('⚠️ Détails erreur: ${result['error']}');
+        debugPrint('⚠️ Code erreur: ${result['code']}');
         _showMessage('Erreur lors de la sauvegarde serveur: ${result['message'] ?? 'Erreur inconnue'}');
       }
     } catch (e) {

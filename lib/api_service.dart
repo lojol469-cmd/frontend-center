@@ -189,13 +189,15 @@ class ApiService {
   
   // Vérifier si le serveur est accessible
   static Future<bool> checkConnection() async {
-    await _ensureInitialized(); // ✅ S'assurer que l'ApiService est initialisé
-    
     try {
-      final url = '$baseUrl$apiPrefix/server-info';
-      debugPrint('🔍 [CHECK] Tentative de connexion à: $url');
+      // ✅ MODE PRODUCTION: Utiliser directement l'URL Render sans initialisation
+      final String serverUrl = ServerConfig.isProduction
+        ? '${ServerConfig.productionUrl}/api/server-info'
+        : '${ServerConfig.buildUrl(_possibleIPs[0])}/api/server-info';
 
-      final response = await http.get(Uri.parse(url)).timeout(
+      debugPrint('🔍 [CHECK] Tentative de connexion à: $serverUrl');
+
+      final response = await http.get(Uri.parse(serverUrl)).timeout(
         const Duration(seconds: 10), // Augmenté à 10 secondes pour mobile
       );
 
@@ -2948,11 +2950,15 @@ class ApiService {
     bool forceRecreate = false,
     File? cardPdfFile,
   }) async {
-    await _ensureInitialized();
     try {
+      // ✅ MODE PRODUCTION: Utiliser directement l'URL Render
+      final String serverUrl = ServerConfig.isProduction
+        ? '${ServerConfig.productionUrl}/api/virtual-id-cards'
+        : '$baseUrl$apiPrefix/virtual-id-cards';
+
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards'),
+        Uri.parse(serverUrl),
       );
 
       request.headers.addAll(_multipartAuthHeaders(token));

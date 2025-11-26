@@ -30,10 +30,27 @@ exports.createVirtualIDCard = async (req, res) => {
   try {
     console.log('\n=== CRÉATION CARTE D\'IDENTITÉ VIRTUELLE ===');
     console.log('User ID:', req.user.userId);
-    console.log('Body:', req.body);
+    console.log('Body keys:', Object.keys(req.body));
+    console.log('Body cardData:', req.body.cardData);
+    console.log('Body biometricData:', req.body.biometricData);
+    console.log('Body forceRecreate:', req.body.forceRecreate);
     console.log('Files:', req.files);
 
-    const { cardData, biometricData, forceRecreate } = req.body;
+    const { cardData: cardDataString, biometricData: biometricDataString } = req.body;
+    const forceRecreate = req.body.forceRecreate === 'true';
+
+    // Parser les données JSON
+    let cardData, biometricData;
+    try {
+      cardData = cardDataString ? JSON.parse(cardDataString) : {};
+      biometricData = biometricDataString ? JSON.parse(biometricDataString) : {};
+    } catch (parseError) {
+      console.log('❌ Erreur parsing JSON:', parseError.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Données JSON invalides'
+      });
+    }
 
     // Vérifier si l'utilisateur a déjà une carte
     const existingCard = await VirtualIDCard.findOne({ userId: req.user.userId });
@@ -52,9 +69,24 @@ exports.createVirtualIDCard = async (req, res) => {
 
     // Validation des données obligatoires
     if (!cardData || !cardData.firstName || !cardData.idNumber) {
+      console.log('❌ Validation échouée: données manquantes');
       return res.status(400).json({
         success: false,
         message: 'Données de carte incomplètes'
+      });
+    }
+
+    // Vérifier si l'idNumber est déjà utilisé PAR UN AUTRE utilisateur
+    console.log('🔍 Vérification unicité idNumber:', cardData.idNumber);
+    const existingCardById = await VirtualIDCard.findOne({
+      'cardData.idNumber': cardData.idNumber,
+      userId: { $ne: req.user.userId } // Exclure la carte de l'utilisateur actuel
+    });
+    if (existingCardById) {
+      console.log('❌ idNumber déjà utilisé par un autre utilisateur:', cardData.idNumber);
+      return res.status(400).json({
+        success: false,
+        message: 'Ce numéro d\'identité est déjà utilisé par un autre utilisateur'
       });
     }
 
@@ -110,7 +142,10 @@ exports.createVirtualIDCard = async (req, res) => {
       email: cardData.email || ''
     };
 
+    console.log('📋 Données complètes avant création:', JSON.stringify(completeCardData, null, 2));
+
     // Créer la carte
+    console.log('🏗️ Création de l\'objet VirtualIDCard...');
     const newCard = new VirtualIDCard({
       userId: req.user.userId,
       cardData: completeCardData,
@@ -120,7 +155,16 @@ exports.createVirtualIDCard = async (req, res) => {
       isActive: true
     });
 
-    await newCard.save();
+    console.log('💾 Tentative de sauvegarde en base de données...');
+    try {
+      await newCard.save();
+      console.log('✅ Sauvegarde réussie, ID:', newCard._id);
+    } catch (saveError) {
+      console.error('❌ Erreur lors de la sauvegarde:', saveError);
+      console.error('❌ Détails de l\'erreur:', saveError.message);
+      console.error('❌ Erreurs de validation:', saveError.errors);
+      throw saveError; // Re-throw pour être catché par le try-catch principal
+    }
 
     console.log('✅ Carte d\'identité virtuelle créée:', newCard._id);
 
@@ -131,10 +175,21 @@ exports.createVirtualIDCard = async (req, res) => {
     });
   } catch (err) {
     console.error('❌ Erreur création carte d\'identité:', err);
+    console.error('❌ Message d\'erreur:', err.message);
+    console.error('❌ Type d\'erreur:', err.name);
+    console.error('❌ Code d\'erreur:', err.code);
+    console.error('❌ Erreurs de validation:', err.errors);
+    if (err.errors) {
+      Object.keys(err.errors).forEach(key => {
+        console.error(`❌ Validation ${key}:`, err.errors[key].message);
+      });
+    }
+    console.error('❌ Stack trace:', err.stack);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la création de la carte d\'identité',
-      error: err.message
+      error: err.message,
+      details: err.errors
     });
   }
 };
@@ -185,7 +240,32 @@ exports.updateVirtualIDCard = async (req, res) => {
     console.log('\n=== MISE À JOUR CARTE D\'IDENTITÉ VIRTUELLE ===');
     console.log('User ID:', req.user.userId);
 
-    const { cardData, biometricData } = req.body;
+    const { cardData: cardDataString, biometricData: biometricDataString } = req.body;
+
+    // Parser les données JSON si elles existent
+    let cardData, biometricData;
+    if (cardDataString) {
+      try {
+        cardData = JSON.parse(cardDataString);
+      } catch (parseError) {
+        console.log('❌ Erreur parsing cardData JSON:', parseError.message);
+        return res.status(400).json({
+          success: false,
+          message: 'Données cardData JSON invalides'
+        });
+      }
+    }
+    if (biometricDataString) {
+      try {
+        biometricData = JSON.parse(biometricDataString);
+      } catch (parseError) {
+        console.log('❌ Erreur parsing biometricData JSON:', parseError.message);
+        return res.status(400).json({
+          success: false,
+          message: 'Données biometricData JSON invalides'
+        });
+      }
+    }
 
     const card = await VirtualIDCard.findOne({ userId: req.user.userId });
 
