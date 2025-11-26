@@ -500,9 +500,15 @@ exports.getCardStats = async (req, res) => {
         createdAt: card.createdAt
       }
     });
-/**
- * Récupérer toutes les cartes d'identité virtuelles (ADMIN seulement)
- */
+  } catch (err) {
+    console.error('❌ Erreur récupération stats:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des statistiques',
+      error: err.message
+    });
+  }
+};
 exports.getAllVirtualIDCards = async (req, res) => {
   try {
     console.log('\n=== RÉCUPÉRATION TOUTES LES CARTES D\'IDENTITÉ (ADMIN) ===');
