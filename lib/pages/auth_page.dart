@@ -234,11 +234,10 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
             icon: Icons.person_rounded,
             enabled: !_isLoading,
           ),
-          const SizedBox(height: 16),
-          // Option Face ID pour inscription rapide
-          if (_canUseBiometrics)
-            _buildFaceIDOption(),
         ],
+        // Option Face ID pour connexion rapide
+        if (_isLogin && _canUseBiometrics)
+          _buildFaceIDOption(),
         if (!_showFaceIDOption) ...[
           CustomTextField(
             controller: _emailController,
@@ -324,7 +323,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Inscription rapide avec Face ID',
+                  'Connexion rapide avec Face ID',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -336,7 +335,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 12),
           Text(
-            'Utilisez votre carte d\'identité SETRAF pour une inscription rapide et sécurisée',
+            'Utilisez votre carte d\'identité SETRAF pour une connexion rapide et sécurisée',
             style: TextStyle(
               fontSize: 14,
               color: Colors.black54,
@@ -472,7 +471,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     if (_showOtpField) {
       await _verifyOtp();
     } else if (_showFaceIDOption) {
-      await _handleFaceIDRegistration();
+      await _handleFaceIDLogin();
     } else if (_isLogin) {
       await _login();
     } else {
@@ -480,12 +479,11 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _handleFaceIDRegistration() async {
-    final name = _nameController.text.trim();
+  Future<void> _handleFaceIDLogin() async {
     final idCard = _idCardController.text.trim();
 
-    if (name.isEmpty || idCard.isEmpty) {
-      setState(() => _message = 'Veuillez remplir tous les champs');
+    if (idCard.isEmpty) {
+      setState(() => _message = 'Veuillez entrer le numéro de carte d\'identité');
       return;
     }
 
@@ -498,7 +496,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       // Étape 1: Authentification biométrique
       debugPrint('🔐 Démarrage authentification Face ID...');
       final didAuthenticate = await _localAuth.authenticate(
-        localizedReason: 'Authentifiez-vous pour créer votre compte',
+        localizedReason: 'Authentifiez-vous pour vous connecter',
         options: const AuthenticationOptions(
           stickyAuth: true,
           biometricOnly: true,
@@ -512,34 +510,23 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
 
       debugPrint('✅ Face ID authentifié - Vérification carte d\'identité...');
 
-      // Étape 2: Vérifier si la carte d'identité existe via API
-      final response = await ApiService.verifyIdCard(idCard);
-      
-      if (response['success'] == true && response['exists'] == true) {
-        final userData = response['user'];
-        debugPrint('✅ Carte d\'identité trouvée: ${userData['email']}');
-        
-        // Étape 3: Inscription automatique avec les données de la carte
-        final registerResult = await ApiService.registerWithFaceID(
-          email: userData['email'],
-          name: name,
-          idCard: idCard,
-        );
+      // Étape 2: Connexion via API avec Face ID
+      final result = await ApiService.loginWithFaceID(idCard);
 
-        if (registerResult['success'] == true) {
-          setState(() {
-            _showOtpField = true;
-            _emailController.text = userData['email'];
-            _message = registerResult['message'] ?? 'Code OTP envoyé à ${userData['email']}';
-          });
-        } else {
-          setState(() => _message = registerResult['message'] ?? 'Erreur lors de l\'inscription');
+      if (result['success'] == true && result.containsKey('accessToken')) {
+        if (mounted) {
+          final appProvider = Provider.of<AppProvider>(context, listen: false);
+          appProvider.setAuthenticated(
+            true,
+            token: result['accessToken'],
+            user: result['user'],
+          );
         }
       } else {
-        setState(() => _message = 'Carte d\'identité non trouvée. Veuillez contacter l\'administration.');
+        setState(() => _message = result['message'] ?? 'Erreur de connexion Face ID');
       }
     } catch (e) {
-      debugPrint('❌ Erreur inscription Face ID: $e');
+      debugPrint('❌ Erreur connexion Face ID: $e');
       setState(() => _message = 'Erreur: $e');
     } finally {
       setState(() => _isLoading = false);

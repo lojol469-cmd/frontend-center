@@ -396,7 +396,29 @@ class ApiService {
     }
   }
 
-  // Rafraîchir le token
+  // Connexion avec Face ID et carte d'identité
+  static Future<Map<String, dynamic>> loginWithFaceID(String idCard) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/auth/login-faceid'),
+        headers: _defaultHeaders,
+        body: json.encode({
+          'idCard': idCard,
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de connexion');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
   static Future<Map<String, dynamic>> refreshToken(String refreshToken) async {
     try {
       final response = await http.post(
