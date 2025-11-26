@@ -494,8 +494,10 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     });
 
     try {
-      debugPrint('🔍 Vérification de l\'email et recherche de carte...');
+      debugPrint('🔍 Vérification de l\'email pour carte virtuelle...');
       final checkResult = await ApiService.checkUserHasVirtualIDCard(email);
+
+      if (!mounted) return;
 
       if (checkResult['success'] == true && checkResult['hasCard'] == true) {
         // Carte trouvée - afficher les informations et proposer connexion automatique
