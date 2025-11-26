@@ -30,6 +30,10 @@ class _ProfilePageState extends State<ProfilePage> {
   Map<String, dynamic>? _storageInfo;
   bool _isLoadingStorage = false;
   
+  // Gestion de la carte ID
+  Map<String, dynamic>? _virtualIDCard;
+  bool _isLoadingIDCard = false;
+
   // Gestion des publications pour libérer l'espace
   List<Map<String, dynamic>> _myPublications = [];
   bool _isLoadingPublications = false;
@@ -42,6 +46,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadUserStats();
     _loadStorageInfo();
     _loadMyPublications();
+    _loadVirtualIDCard();
   }
   Future<void> _loadUserStats() async {
     // Éviter les appels simultanés - VÉRIFIER EN PREMIER
@@ -128,6 +133,42 @@ class _ProfilePageState extends State<ProfilePage> {
       debugPrint('❌ Erreur chargement stockage: $e');
       if (mounted) {
         setState(() => _isLoadingStorage = false);
+      }
+    }
+  }
+
+  /// Charger la carte ID virtuelle de l'utilisateur
+  Future<void> _loadVirtualIDCard() async {
+    if (_isLoadingIDCard) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) {
+      debugPrint('⚠️ Token manquant pour charger la carte ID');
+      return;
+    }
+
+    setState(() => _isLoadingIDCard = true);
+
+    try {
+      final result = await ApiService.getVirtualIDCard(token);
+      debugPrint('🆔 Carte ID reçue: ${result['success']}');
+
+      if (mounted && result['success'] == true) {
+        setState(() {
+          _virtualIDCard = result['card'];
+          _isLoadingIDCard = false;
+        });
+      } else {
+        if (mounted) {
+          setState(() => _isLoadingIDCard = false);
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur chargement carte ID: $e');
+      if (mounted) {
+        setState(() => _isLoadingIDCard = false);
       }
     }
   }
@@ -613,6 +654,106 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+            // Indicateur de carte ID
+            if (_isLoadingIDCard)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.grey.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Vérification carte...',
+                      style: TextStyle(
+                        color: Colors.grey.withValues(alpha: 0.7),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (_virtualIDCard != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00FF88).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.verified_user_rounded,
+                      color: Color(0xFF00FF88),
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Carte SETRAF Active',
+                      style: TextStyle(
+                        color: Color(0xFF00FF88),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFAA00).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFFFFAA00).withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.credit_card_rounded,
+                      color: Color(0xFFFFAA00),
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Carte SETRAF Non Générée',
+                      style: TextStyle(
+                        color: Color(0xFFFFAA00),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

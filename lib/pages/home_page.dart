@@ -21,6 +21,7 @@ import 'comments_page.dart';
 import 'private_chat_notifications_page.dart';
 import 'private_chat_page.dart';
 import 'setraf_landing_page.dart';
+import 'setraf_id_card_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -39,6 +40,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _publicationsCount = 0;
   int _markersCount = 0;
   int _notificationsCount = 0;
+  
+  // Gestion de la carte ID
+  Map<String, dynamic>? _virtualIDCard;
+  bool _isLoadingIDCard = false;
   
   // Publications récentes pour les commentaires
   List<Map<String, dynamic>> _recentPublications = [];
@@ -59,6 +64,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     // Charger les statistiques et les publications récentes
     _loadStats();
     _loadRecentPublications();
+    _loadVirtualIDCard();
     
     // Auto-refresh des publications toutes les 30 secondes
     _publicationsRefreshTimer = Timer.periodic(
@@ -118,6 +124,42 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     } finally {
       if (mounted) {
         setState(() => _isLoadingStats = false);
+      }
+    }
+  }
+
+  /// Charger la carte ID virtuelle de l'utilisateur
+  Future<void> _loadVirtualIDCard() async {
+    if (_isLoadingIDCard) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) {
+      debugPrint('⚠️ Token manquant pour charger la carte ID');
+      return;
+    }
+
+    setState(() => _isLoadingIDCard = true);
+
+    try {
+      final result = await ApiService.getVirtualIDCard(token);
+      debugPrint('🆔 Carte ID reçue: ${result['success']}');
+
+      if (mounted && result['success'] == true) {
+        setState(() {
+          _virtualIDCard = result['card'];
+          _isLoadingIDCard = false;
+        });
+      } else {
+        if (mounted) {
+          setState(() => _isLoadingIDCard = false);
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur chargement carte ID: $e');
+      if (mounted) {
+        setState(() => _isLoadingIDCard = false);
       }
     }
   }
@@ -727,6 +769,52 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     color: themeProvider.primaryColor,
                     trend: _notificationsCount > 0 ? 'Nouvelles!' : '',
                   ),
+                ),
+              ],
+            ),
+            SizedBox(height: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _isLoadingIDCard
+                      ? Container(
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: themeProvider.surfaceColor.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: themeProvider.primaryColor.withValues(alpha: 0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(themeProvider.primaryColor),
+                            ),
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: _virtualIDCard == null ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SetrafIdCardPage(),
+                              ),
+                            ).then((_) => _loadVirtualIDCard());
+                          } : null,
+                          child: StatsCard(
+                            title: 'Carte SETRAF',
+                            value: _virtualIDCard != null ? 'Active' : 'Non générée',
+                            icon: _virtualIDCard != null ? Icons.verified_user_rounded : Icons.credit_card_rounded,
+                            color: _virtualIDCard != null ? const Color(0xFF00FF88) : const Color(0xFFFFAA00),
+                            trend: _virtualIDCard != null ? '✓' : 'Créer',
+                          ),
+                        ),
+                ),
+                SizedBox(width: isVerySmallScreen ? 12 : isSmallScreen ? 14 : isTablet ? 20 : 16),
+                Expanded(
+                  child: Container(), // Espace vide pour équilibrer la grille
                 ),
               ],
             ),

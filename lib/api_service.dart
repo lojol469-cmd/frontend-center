@@ -2956,4 +2956,181 @@ class ApiService {
       throw Exception('Erreur de connexion: $e');
     }
   }
+
+  // ========================================
+  // CARTES D'IDENTITÉ VIRTUELLES
+  // ========================================
+
+  // Créer une carte d'identité virtuelle
+  static Future<Map<String, dynamic>> createVirtualIDCard(
+    String token, {
+    required Map<String, dynamic> cardData,
+    Map<String, dynamic>? biometricData,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards'),
+        headers: _authHeaders(token),
+        body: json.encode({
+          'cardData': cardData,
+          'biometricData': biometricData ?? {},
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 201) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de création de la carte');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Récupérer la carte d'identité virtuelle de l'utilisateur
+  static Future<Map<String, dynamic>> getVirtualIDCard(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Carte non trouvée');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Mettre à jour la carte d'identité virtuelle
+  static Future<Map<String, dynamic>> updateVirtualIDCard(
+    String token, {
+    Map<String, dynamic>? cardData,
+    Map<String, dynamic>? biometricData,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards'),
+        headers: _authHeaders(token),
+        body: json.encode({
+          'cardData': cardData,
+          'biometricData': biometricData,
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de mise à jour');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Supprimer la carte d'identité virtuelle
+  static Future<Map<String, dynamic>> deleteVirtualIDCard(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de suppression');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Authentifier via biométrie
+  static Future<Map<String, dynamic>> authenticateBiometric({
+    required String biometricType,
+    required dynamic biometricData,
+    String? deviceId,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards/authenticate'),
+        headers: _defaultHeaders,
+        body: json.encode({
+          'biometricType': biometricType,
+          'biometricData': biometricData,
+          'deviceId': deviceId,
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Authentification échouée');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Vérifier un token d'authentification biométrique
+  static Future<Map<String, dynamic>> verifyBiometricToken(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards/verify-token'),
+        headers: _defaultHeaders,
+        body: json.encode({'token': token}),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Token invalide');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Récupérer les statistiques de la carte
+  static Future<Map<String, dynamic>> getVirtualIDCardStats(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards/stats'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération des stats');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
 }

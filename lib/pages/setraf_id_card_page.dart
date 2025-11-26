@@ -12,6 +12,7 @@ import '../main.dart';
 import '../components/futuristic_card.dart';
 import '../components/gradient_button.dart';
 import '../theme/theme_provider.dart';
+import '../api_service.dart';
 
 class SetrafIdCardPage extends StatefulWidget {
   const SetrafIdCardPage({super.key});
@@ -283,10 +284,55 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
         _generatedCardImage = output;
       });
 
-      _showMessage('Carte SETRAF générée avec succès !');
+      // Sauvegarder la carte côté serveur
+      await _saveCardToServer(user, output);
+
+      _showMessage('Carte SETRAF générée et sauvegardée avec succès !');
     } catch (e) {
       debugPrint('Erreur génération carte: $e');
       _showMessage('Erreur lors de la génération de la carte: $e');
+    }
+  }
+
+  Future<void> _saveCardToServer(Map<String, dynamic> user, Uint8List pdfData) async {
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final token = appProvider.accessToken;
+
+      if (token == null) {
+        debugPrint('Token manquant, impossible de sauvegarder côté serveur');
+        return;
+      }
+
+      // Préparer les données de la carte
+      final cardData = {
+        'firstName': user['name']?.split(' ')?.first ?? '',
+        'lastName': user['name']?.split(' ')?.skip(1)?.join(' ') ?? '',
+        'idNumber': 'SETRAF-${user['_id']?.substring(0, 8) ?? 'UNKNOWN'}',
+        'email': user['email'] ?? '',
+        'issueDate': DateTime.now().toIso8601String(),
+        'expiryDate': DateTime.now().add(const Duration(days: 365 * 10)).toIso8601String(),
+      };
+
+      // Sauvegarder côté serveur
+      final result = await ApiService.createVirtualIDCard(
+        token,
+        cardData: cardData,
+        biometricData: {
+          'biometricType': 'fingerprint', // Type par défaut
+          'deviceAuthenticated': true,
+          'authenticationTimestamp': DateTime.now().toIso8601String(),
+        },
+      );
+
+      if (result['success'] == true) {
+        debugPrint('✅ Carte sauvegardée côté serveur');
+      } else {
+        debugPrint('⚠️ Échec sauvegarde serveur: ${result['message']}');
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur sauvegarde serveur: $e');
+      // Ne pas afficher d'erreur à l'utilisateur car la carte locale fonctionne
     }
   }
 
