@@ -943,68 +943,77 @@ app.post('/api/auth/register-faceid', async (req, res) => {
   }
 });
 
-// Connexion avec Face ID et carte d'identité
-app.post('/api/auth/login-faceid', async (req, res) => {
-  console.log('\n=== CONNEXION FACE ID ===');
-  const { idCard } = req.body;
-  console.log('ID Carte:', idCard);
+// Connexion automatique avec carte virtuelle (lorsque la carte est trouvée par email)
+app.post('/api/auth/login-virtual-card', async (req, res) => {
+  console.log('\n=== CONNEXION AUTOMATIQUE AVEC CARTE VIRTUELLE ===');
+  const { email } = req.body;
+  console.log('Email:', email);
 
   try {
-    // Vérifier que la carte existe
-    const virtualCard = await VirtualIDCard.findOne({ 'cardData.idNumber': idCard });
-    
-    if (!virtualCard) {
-      console.log('❌ Carte d\'identité non trouvée');
-      return res.status(404).json({ 
-        success: false,
-        message: 'Carte d\'identité non trouvée' 
-      });
-    }
+    // Chercher l'utilisateur par email
+    const user = await User.findOne({ email: email.toLowerCase() });
 
-    // Vérifier que l'utilisateur existe
-    const user = await User.findOne({ email: virtualCard.cardData.email });
-    
     if (!user) {
       console.log('❌ Utilisateur non trouvé');
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Utilisateur non trouvé. Veuillez vous inscrire d\'abord.' 
+        message: 'Utilisateur non trouvé'
       });
     }
 
     // Vérifier le statut de l'utilisateur
     if (user.status === 'blocked') {
       console.log('❌ Utilisateur bloqué');
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
-        message: 'Accès refusé - Compte désactivé' 
+        message: 'Accès refusé - Compte désactivé'
       });
     }
 
-    // Générer les tokens
+    // Vérifier que l'utilisateur a une carte virtuelle active et vérifiée
+    const virtualCard = await VirtualIDCard.findOne({
+      userId: user._id,
+      isActive: true,
+      verificationStatus: 'verified'
+    });
+
+    if (!virtualCard) {
+      console.log('❌ Aucune carte virtuelle active trouvée pour cet utilisateur');
+      return res.status(404).json({
+        success: false,
+        message: 'Aucune carte d\'identité virtuelle trouvée pour cet utilisateur'
+      });
+    }
+
+    // Générer les tokens (connexion automatique réussie)
     const accessToken = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
     const refreshToken = jwt.sign({ userId: user._id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
-    console.log('✅ Connexion Face ID réussie pour:', user.email);
+    // Mettre à jour la dernière utilisation de la carte
+    virtualCard.lastUsed = new Date();
+    virtualCard.usageCount += 1;
+    await virtualCard.save();
+
+    console.log('✅ Connexion automatique réussie pour:', user.email);
 
     res.json({
       success: true,
-      message: 'Connexion réussie',
+      message: 'Connexion automatique réussie',
       accessToken,
       refreshToken,
-      user: { 
+      user: {
         _id: user._id.toString(),
-        email: user.email, 
-        name: user.name, 
-        profileImage: user.profileImage, 
-        status: user.status 
+        email: user.email,
+        name: user.name,
+        profileImage: user.profileImage,
+        status: user.status
       }
     });
   } catch (error) {
-    console.error('❌ Erreur connexion Face ID:', error);
-    res.status(500).json({ 
+    console.error('❌ Erreur connexion automatique:', error);
+    res.status(500).json({
       success: false,
-      message: 'Erreur serveur lors de la connexion' 
+      message: 'Erreur serveur lors de la connexion automatique'
     });
   }
 });

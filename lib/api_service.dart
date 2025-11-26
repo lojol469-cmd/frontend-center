@@ -42,6 +42,7 @@ class ApiService {
     // ✅ PRIORITÉ ABSOLUE: Mode production = URL Render uniquement
     if (ServerConfig.isProduction) {
       developer.log('🌐 PRODUCTION MODE: Forçant l\'utilisation de ${ServerConfig.productionUrl}', name: 'ApiService');
+      developer.log('📍 CONFIGURATION CONFIRMÉE: isProduction=${ServerConfig.isProduction}', name: 'ApiService');
       return ServerConfig.productionUrl;
     }
 
@@ -109,6 +110,7 @@ class ApiService {
       _isInitialized = true;
       developer.log('🌐 PRODUCTION MODE FORCÉ - URL: $_baseUrl', name: 'ApiService');
       developer.log('📍 Configuration: isProduction=${ServerConfig.isProduction}, productionUrl=${ServerConfig.productionUrl}', name: 'ApiService');
+      developer.log('✅ SERVEUR PRODUCTION CONFIRMÉ: https://center-backend-v9rf.onrender.com', name: 'ApiService');
       return;
     }
     
@@ -398,15 +400,15 @@ class ApiService {
     }
   }
 
-  // Connexion avec Face ID et carte d'identité
-  static Future<Map<String, dynamic>> loginWithFaceID(String idCard) async {
+  // Vérifier si un utilisateur a une carte d'identité virtuelle
+  static Future<Map<String, dynamic>> checkUserHasVirtualIDCard(String email) async {
     await _ensureInitialized();
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl$apiPrefix/auth/login-faceid'),
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards/check-user-card'),
         headers: _defaultHeaders,
         body: json.encode({
-          'idCard': idCard,
+          'email': email,
         }),
       );
 
@@ -415,7 +417,31 @@ class ApiService {
       if (response.statusCode == 200) {
         return data;
       } else {
-        throw Exception(data['message'] ?? 'Erreur de connexion');
+        throw Exception(data['message'] ?? 'Erreur lors de la vérification');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Connexion automatique avec carte virtuelle (lorsque la carte est trouvée par email)
+  static Future<Map<String, dynamic>> loginWithVirtualCard(String email) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/auth/login-virtual-card'),
+        headers: _defaultHeaders,
+        body: json.encode({
+          'email': email,
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de connexion automatique');
       }
     } catch (e) {
       throw Exception('Erreur de connexion: $e');
@@ -3145,28 +3171,6 @@ class ApiService {
         return data;
       } else {
         throw Exception(data['message'] ?? 'Erreur de récupération des stats');
-      }
-    } catch (e) {
-      throw Exception('Erreur de connexion: $e');
-    }
-  }
-
-  // Vérifier si un email a une carte d'identité virtuelle
-  static Future<Map<String, dynamic>> checkUserHasVirtualIDCard(String email) async {
-    await _ensureInitialized();
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards/check-user-card'),
-        headers: _defaultHeaders,
-        body: json.encode({'email': email}),
-      );
-
-      final data = json.decode(response.body);
-
-      if (response.statusCode == 200) {
-        return data;
-      } else {
-        throw Exception(data['message'] ?? 'Erreur lors de la vérification');
       }
     } catch (e) {
       throw Exception('Erreur de connexion: $e');

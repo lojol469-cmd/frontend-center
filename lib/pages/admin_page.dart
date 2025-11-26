@@ -10,6 +10,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:async';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -31,12 +32,24 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
   String? _error;
   bool _isDisposed = false;
 
+  // Variables pour les barres de recherche
+  String _searchActiveUsers = '';
+  String _searchBlockedUsers = '';
+  String _searchEmployees = '';
+  String _searchIDCards = '';
+
+  // Timer pour le rafraîchissement automatique des cartes d'identité
+  Timer? _idCardsRefreshTimer;
+
   @override
   void initState() {
     super.initState();
     _selectedImage = 'assets/images/pexels-francesco-ungaro-2325447.jpg'; // Image existante
     _loadAdminData();
     WidgetsBinding.instance.addObserver(this);
+    
+    // Démarrer le timer pour rafraîchir automatiquement les cartes d'identité
+    _startIDCardsAutoRefresh();
   }
 
   // Helper pour transformer les URLs relatives en URLs complètes
@@ -55,9 +68,42 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
     return '$baseUrl/$cleanUrl';
   }
 
+  // Démarre le rafraîchissement automatique des cartes d'identité
+  void _startIDCardsAutoRefresh() {
+    _idCardsRefreshTimer?.cancel(); // Annuler le timer existant si présent
+    _idCardsRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (!_isDisposed && mounted) {
+        _refreshIDCards();
+      }
+    });
+  }
+
+  // Rafraîchit uniquement les cartes d'identité
+  Future<void> _refreshIDCards() async {
+    if (_isLoadingIDCards || _isDisposed) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) return;
+
+    try {
+      final idCardsData = await ApiService.getAllIDCards(token);
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _idCards = idCardsData['idCards'] ?? [];
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur rafraîchissement cartes d\'identité: $e');
+      // Ne pas afficher d'erreur pour les rafraîchissements automatiques
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _idCardsRefreshTimer?.cancel();
     _isDisposed = true;
     super.dispose();
   }
@@ -481,6 +527,33 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
                 ],
               ),
               const SizedBox(height: 20),
+              // Barre de recherche
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF00D4FF).withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: TextField(
+                  onChanged: (value) {
+                    setState(() {
+                      _searchActiveUsers = value.toLowerCase();
+                    });
+                  },
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Rechercher un utilisateur...',
+                    hintStyle: TextStyle(color: Colors.white70),
+                    border: InputBorder.none,
+                    icon: Icon(Icons.search, color: Color(0xFF00D4FF)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               if (activeUsers.isEmpty)
                 const Center(
                   child: Text(
@@ -494,9 +567,20 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
                   child: ListView.builder(
                     shrinkWrap: true,
                     physics: const ClampingScrollPhysics(),
-                    itemCount: activeUsers.length,
+                    itemCount: activeUsers.where((user) {
+                      final name = user['name']?.toString().toLowerCase() ?? '';
+                      final email = user['email']?.toString().toLowerCase() ?? '';
+                      final searchTerm = _searchActiveUsers;
+                      return name.contains(searchTerm) || email.contains(searchTerm);
+                    }).length,
                     itemBuilder: (context, index) {
-                      final user = activeUsers[index];
+                      final filteredUsers = activeUsers.where((user) {
+                        final name = user['name']?.toString().toLowerCase() ?? '';
+                        final email = user['email']?.toString().toLowerCase() ?? '';
+                        final searchTerm = _searchActiveUsers;
+                        return name.contains(searchTerm) || email.contains(searchTerm);
+                      }).toList();
+                      final user = filteredUsers[index];
                       return _buildUserItem(context, user, appProvider);
                     },
                   ),
@@ -569,14 +653,52 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
                   ),
                 ),
                 const SizedBox(height: 20),
+                // Barre de recherche
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1E1E),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        _searchBlockedUsers = value.toLowerCase();
+                      });
+                    },
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      hintText: 'Rechercher un utilisateur désactivé...',
+                      hintStyle: TextStyle(color: Colors.white70),
+                      border: InputBorder.none,
+                      icon: Icon(Icons.search, color: Colors.red),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
                 Container(
                   constraints: const BoxConstraints(maxHeight: 300),
                   child: ListView.builder(
                     shrinkWrap: true,
                     physics: const ClampingScrollPhysics(),
-                    itemCount: blockedUsers.length,
+                    itemCount: blockedUsers.where((user) {
+                      final name = user['name']?.toString().toLowerCase() ?? '';
+                      final email = user['email']?.toString().toLowerCase() ?? '';
+                      final searchTerm = _searchBlockedUsers;
+                      return name.contains(searchTerm) || email.contains(searchTerm);
+                    }).length,
                     itemBuilder: (context, index) {
-                      final user = blockedUsers[index];
+                      final filteredUsers = blockedUsers.where((user) {
+                        final name = user['name']?.toString().toLowerCase() ?? '';
+                        final email = user['email']?.toString().toLowerCase() ?? '';
+                        final searchTerm = _searchBlockedUsers;
+                        return name.contains(searchTerm) || email.contains(searchTerm);
+                      }).toList();
+                      final user = filteredUsers[index];
                       return _buildBlockedUserItem(context, user, appProvider);
                     },
                   ),
@@ -1027,6 +1149,33 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
             ],
           ),
           const SizedBox(height: 20),
+          // Barre de recherche
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E1E),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFFF6B35).withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+            child: TextField(
+              onChanged: (value) {
+                setState(() {
+                  _searchEmployees = value.toLowerCase();
+                });
+              },
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Rechercher un employé...',
+                hintStyle: TextStyle(color: Colors.white70),
+                border: InputBorder.none,
+                icon: Icon(Icons.search, color: Color(0xFFFF6B35)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
           if (_employees.isEmpty)
             const Center(
               child: Text(
@@ -1040,9 +1189,22 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
               child: ListView.builder(
                 shrinkWrap: true,
                 physics: const ClampingScrollPhysics(),
-                itemCount: _employees.length,
+                itemCount: _employees.where((employee) {
+                  final name = employee['name']?.toString().toLowerCase() ?? '';
+                  final email = employee['email']?.toString().toLowerCase() ?? '';
+                  final phone = employee['phone']?.toString().toLowerCase() ?? '';
+                  final searchTerm = _searchEmployees;
+                  return name.contains(searchTerm) || email.contains(searchTerm) || phone.contains(searchTerm);
+                }).length,
                 itemBuilder: (context, index) {
-                  final employee = _employees[index];
+                  final filteredEmployees = _employees.where((employee) {
+                    final name = employee['name']?.toString().toLowerCase() ?? '';
+                    final email = employee['email']?.toString().toLowerCase() ?? '';
+                    final phone = employee['phone']?.toString().toLowerCase() ?? '';
+                    final searchTerm = _searchEmployees;
+                    return name.contains(searchTerm) || email.contains(searchTerm) || phone.contains(searchTerm);
+                  }).toList();
+                  final employee = filteredEmployees[index];
                   return _buildEmployeeItem(context, employee, appProvider);
                 },
               ),
@@ -1080,14 +1242,95 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
                 ),
               ),
               const SizedBox(width: 16),
-              Text(
-                'Cartes d\'Identité (${_idCards.length})',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cartes d\'Identité (${_idCards.length})',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Mise à jour automatique toutes les 30 secondes',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              // Indicateur de rafraîchissement automatique
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9C27B0).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.refresh_rounded,
+                          color: const Color(0xFF9C27B0),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Auto',
+                          style: TextStyle(
+                            color: const Color(0xFF9C27B0),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: _refreshIDCards,
+                    icon: const Icon(Icons.refresh, size: 20),
+                    tooltip: 'Rafraîchir les cartes d\'identité',
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF9C27B0).withValues(alpha: 0.1),
+                      padding: const EdgeInsets.all(8),
+                    ),
+                  ),
+                ],
+              ),
             ],
+          ),
+          const SizedBox(height: 20),
+          // Barre de recherche
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E1E),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF9C27B0).withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+            child: TextField(
+              onChanged: (value) {
+                setState(() {
+                  _searchIDCards = value.toLowerCase();
+                });
+              },
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Rechercher une carte d\'identité...',
+                hintStyle: TextStyle(color: Colors.white70),
+                border: InputBorder.none,
+                icon: Icon(Icons.search, color: Color(0xFF9C27B0)),
+              ),
+            ),
           ),
           const SizedBox(height: 20),
           if (_idCards.isEmpty)
@@ -1100,17 +1343,43 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
           else
             Container(
               constraints: const BoxConstraints(maxHeight: 500),
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: const ClampingScrollPhysics(),
-                itemCount: _idCards.length,
-                itemBuilder: (context, index) {
-                  final idCard = _idCards[index];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: _buildIDCardItem(context, idCard, appProvider),
-                  );
-                },
+              child: RefreshIndicator(
+                onRefresh: _refreshIDCards,
+                color: const Color(0xFF9C27B0),
+                backgroundColor: const Color(0xFF1E1E1E),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: _idCards.where((idCard) {
+                    final firstName = idCard['cardData']?['firstName']?.toString().toLowerCase() ?? '';
+                    final lastName = idCard['cardData']?['lastName']?.toString().toLowerCase() ?? '';
+                    final userName = idCard['user']?['name']?.toString().toLowerCase() ?? '';
+                    final cardNumber = idCard['cardNumber']?.toString().toLowerCase() ?? '';
+                    final searchTerm = _searchIDCards;
+                    return firstName.contains(searchTerm) || 
+                           lastName.contains(searchTerm) || 
+                           userName.contains(searchTerm) ||
+                           cardNumber.contains(searchTerm);
+                  }).length,
+                  itemBuilder: (context, index) {
+                    final filteredIDCards = _idCards.where((idCard) {
+                      final firstName = idCard['cardData']?['firstName']?.toString().toLowerCase() ?? '';
+                      final lastName = idCard['cardData']?['lastName']?.toString().toLowerCase() ?? '';
+                      final userName = idCard['user']?['name']?.toString().toLowerCase() ?? '';
+                      final cardNumber = idCard['cardNumber']?.toString().toLowerCase() ?? '';
+                      final searchTerm = _searchIDCards;
+                      return firstName.contains(searchTerm) || 
+                             lastName.contains(searchTerm) || 
+                             userName.contains(searchTerm) ||
+                             cardNumber.contains(searchTerm);
+                    }).toList();
+                    final idCard = filteredIDCards[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: _buildIDCardItem(context, idCard, appProvider),
+                    );
+                  },
+                ),
               ),
             ),
         ],
