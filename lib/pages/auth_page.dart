@@ -30,6 +30,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   bool _showOtpField = false;
   bool _showFaceIDOption = false;
   bool _canUseBiometrics = false;
+  bool _faceIDStepEmail = true; // Nouvelle étape pour l'email dans Face ID
   String _message = '';
   late String _selectedImage;
   final BackgroundImageManager _imageManager = BackgroundImageManager();
@@ -260,12 +261,22 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
         if (_showFaceIDOption) ...[
           const SizedBox(height: 16),
           CustomTextField(
-            controller: _idCardController,
-            label: 'Numéro de carte d\'identité',
-            icon: Icons.badge_rounded,
-            keyboardType: TextInputType.text,
+            controller: _emailController,
+            label: 'Email',
+            icon: Icons.email_rounded,
+            keyboardType: TextInputType.emailAddress,
             enabled: !_isLoading,
           ),
+          if (!_faceIDStepEmail) ...[
+            const SizedBox(height: 16),
+            CustomTextField(
+              controller: _idCardController,
+              label: 'Numéro de carte d\'identité',
+              icon: Icons.badge_rounded,
+              keyboardType: TextInputType.text,
+              enabled: !_isLoading,
+            ),
+          ],
         ],
         if (_showOtpField) ...[
           const SizedBox(height: 16),
@@ -285,7 +296,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
             _showOtpField 
               ? 'Vérifier OTP' 
               : (_showFaceIDOption 
-                ? 'Vérifier Face ID' 
+                ? (_faceIDStepEmail ? 'Vérifier Email' : 'Vérifier Face ID')
                 : (_isLogin ? 'Se connecter' : 'S\'inscrire')),
             style: const TextStyle(
               fontSize: 16,
@@ -349,6 +360,9 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                 if (_showFaceIDOption) {
                   _emailController.clear();
                   _passwordController.clear();
+                  _faceIDStepEmail = true; // Reset à l'étape email
+                  _idCardController.clear();
+                  _message = '';
                 }
               });
             },
@@ -405,8 +419,11 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
             setState(() {
               _isLogin = !_isLogin;
               _showOtpField = false;
+              _showFaceIDOption = false;
+              _faceIDStepEmail = true; // Reset Face ID state
               _message = '';
               _otpController.clear();
+              _idCardController.clear();
             });
           },
           child: Text(
@@ -480,56 +497,111 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   }
 
   Future<void> _handleFaceIDLogin() async {
-    final idCard = _idCardController.text.trim();
+    if (_faceIDStepEmail) {
+      // Étape 1: Vérifier l'email et récupérer automatiquement l'ID de carte
+      final email = _emailController.text.trim();
 
-    if (idCard.isEmpty) {
-      setState(() => _message = 'Veuillez entrer le numéro de carte d\'identité');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _message = '';
-    });
-
-    try {
-      // Étape 1: Authentification biométrique
-      debugPrint('🔐 Démarrage authentification Face ID...');
-      final didAuthenticate = await _localAuth.authenticate(
-        localizedReason: 'Authentifiez-vous pour vous connecter',
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: true,
-        ),
-      );
-
-      if (!didAuthenticate) {
-        setState(() => _message = 'Authentification Face ID échouée');
+      if (email.isEmpty) {
+        setState(() => _message = 'Veuillez entrer votre email');
         return;
       }
 
-      debugPrint('✅ Face ID authentifié - Vérification carte d\'identité...');
+      setState(() {
+        _isLoading = true;
+        _message = '';
+      });
 
-      // Étape 2: Connexion via API avec Face ID
-      final result = await ApiService.loginWithFaceID(idCard);
+      try {
+        debugPrint('🔍 Vérification de l\'email et recherche de carte...');
+        final checkResult = await ApiService.checkUserHasVirtualIDCard(email);
 
-      if (result['success'] == true && result.containsKey('accessToken')) {
-        if (mounted) {
-          final appProvider = Provider.of<AppProvider>(context, listen: false);
-          appProvider.setAuthenticated(
-            true,
-            token: result['accessToken'],
-            user: result['user'],
-          );
+        if (checkResult['success'] == true && checkResult['hasCard'] == true) {
+          // Carte trouvée - récupérer automatiquement l'ID
+          final cardId = checkResult['cardId'];
+          setState(() {
+            _idCardController.text = cardId;
+            _faceIDStepEmail = false;
+            _message = 'Carte d\'identité trouvée automatiquement pour ${checkResult['userName']}';
+          });
+          debugPrint('✅ Carte trouvée automatiquement: $cardId');
+        } else {
+          // Pas de carte trouvée - passer à l'étape manuelle
+          setState(() {
+            _faceIDStepEmail = false;
+            _message = 'Aucune carte trouvée. Veuillez entrer le numéro de carte d\'identité manuellement.';
+          });
+          debugPrint('⚠️ Aucune carte trouvée pour cet email');
         }
-      } else {
-        setState(() => _message = result['message'] ?? 'Erreur de connexion Face ID');
+      } catch (e) {
+        debugPrint('❌ Erreur vérification email: $e');
+        setState(() => _message = 'Erreur lors de la vérification: $e');
+      } finally {
+        setState(() => _isLoading = false);
       }
-    } catch (e) {
-      debugPrint('❌ Erreur connexion Face ID: $e');
-      setState(() => _message = 'Erreur: $e');
-    } finally {
-      setState(() => _isLoading = false);
+    } else {
+      // Étape 2: Authentification Face ID avec l'ID de carte
+      final idCard = _idCardController.text.trim();
+
+      if (idCard.isEmpty) {
+        setState(() => _message = 'Veuillez entrer le numéro de carte d\'identité');
+        return;
+      }
+
+      setState(() {
+        _isLoading = true;
+        _message = '';
+      });
+
+      try {
+        // Étape 2.1: Vérifier que la carte d'identité existe
+        debugPrint('🔍 Vérification de l\'existence de la carte d\'identité...');
+        final verifyResult = await ApiService.verifyIdCard(idCard);
+
+        if (verifyResult['success'] != true) {
+          setState(() => _message = verifyResult['message'] ?? 'Carte d\'identité non trouvée');
+          return;
+        }
+
+        debugPrint('✅ Carte d\'identité vérifiée - Procédure Face ID...');
+
+        // Étape 2.2: Authentification biométrique
+        debugPrint('🔐 Démarrage authentification Face ID...');
+        final didAuthenticate = await _localAuth.authenticate(
+          localizedReason: 'Authentifiez-vous pour vous connecter',
+          options: const AuthenticationOptions(
+            stickyAuth: true,
+            biometricOnly: true,
+          ),
+        );
+
+        if (!didAuthenticate) {
+          setState(() => _message = 'Authentification Face ID échouée');
+          return;
+        }
+
+        debugPrint('✅ Face ID authentifié - Connexion via API...');
+
+        // Étape 2.3: Connexion via API avec Face ID
+        final result = await ApiService.loginWithFaceID(idCard);
+
+        if (result['success'] == true && result.containsKey('accessToken')) {
+          if (mounted) {
+            final appProvider = Provider.of<AppProvider>(context, listen: false);
+            appProvider.setAuthenticated(
+              true,
+              token: result['accessToken'],
+              user: result['user'],
+            );
+          }
+        } else {
+          setState(() => _message = result['message'] ?? 'Erreur de connexion Face ID');
+        }
+      } catch (e) {
+        debugPrint('❌ Erreur connexion Face ID: $e');
+        setState(() => _message = 'Erreur: $e');
+      } finally {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

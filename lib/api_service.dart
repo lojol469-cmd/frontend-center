@@ -2945,18 +2945,37 @@ class ApiService {
     String token, {
     required Map<String, dynamic> cardData,
     Map<String, dynamic>? biometricData,
+    bool forceRecreate = false,
+    File? cardPdfFile,
   }) async {
     await _ensureInitialized();
     try {
-      final response = await http.post(
+      var request = http.MultipartRequest(
+        'POST',
         Uri.parse('$baseUrl$apiPrefix/virtual-id-cards'),
-        headers: _authHeaders(token),
-        body: json.encode({
-          'cardData': cardData,
-          'biometricData': biometricData ?? {},
-        }),
       );
 
+      request.headers.addAll(_multipartAuthHeaders(token));
+
+      // Champs texte
+      request.fields['cardData'] = json.encode(cardData);
+      request.fields['biometricData'] = json.encode(biometricData ?? {});
+      request.fields['forceRecreate'] = forceRecreate.toString();
+
+      // Fichier PDF de la carte
+      if (cardPdfFile != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'cardPdf',
+            cardPdfFile.path,
+            filename: path.basename(cardPdfFile.path),
+            contentType: MediaType('application', 'pdf'),
+          ),
+        );
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
       final data = json.decode(response.body);
 
       if (response.statusCode == 201) {
@@ -2982,8 +3001,15 @@ class ApiService {
 
       if (response.statusCode == 200) {
         return data;
+      } else if (response.statusCode == 404) {
+        // Carte non trouvée - c'est normal, pas une erreur
+        return {
+          'success': false,
+          'message': 'Carte d\'identité virtuelle non trouvée',
+          'card': null
+        };
       } else {
-        throw Exception(data['message'] ?? 'Carte non trouvée');
+        throw Exception(data['message'] ?? 'Erreur lors de la récupération');
       }
     } catch (e) {
       throw Exception('Erreur de connexion: $e');
@@ -3032,6 +3058,12 @@ class ApiService {
 
       if (response.statusCode == 200) {
         return data;
+      } else if (response.statusCode == 404) {
+        // Carte non trouvée - c'est normal pour une suppression
+        return {
+          'success': false,
+          'message': 'Carte d\'identité virtuelle non trouvée'
+        };
       } else {
         throw Exception(data['message'] ?? 'Erreur de suppression');
       }
@@ -3107,6 +3139,28 @@ class ApiService {
         return data;
       } else {
         throw Exception(data['message'] ?? 'Erreur de récupération des stats');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Vérifier si un email a une carte d'identité virtuelle
+  static Future<Map<String, dynamic>> checkUserHasVirtualIDCard(String email) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards/check-user-card'),
+        headers: _defaultHeaders,
+        body: json.encode({'email': email}),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur lors de la vérification');
       }
     } catch (e) {
       throw Exception('Erreur de connexion: $e');

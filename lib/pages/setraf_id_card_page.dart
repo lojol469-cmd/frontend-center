@@ -27,11 +27,14 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
   bool _isAuthenticating = false;
   String _authMessage = '';
   Uint8List? _generatedCardImage;
+  bool _hasExistingCard = false;
+  bool _isCheckingCard = true;
 
   @override
   void initState() {
     super.initState();
     _checkBiometricSupport();
+    _checkExistingCard();
   }
 
   Future<void> _checkBiometricSupport() async {
@@ -47,6 +50,38 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
     } catch (e) {
       setState(() {
         _authMessage = 'Erreur lors de la vérification biométrique: $e';
+      });
+    }
+  }
+
+  Future<void> _checkExistingCard() async {
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final token = appProvider.accessToken;
+
+      if (token == null) {
+        setState(() {
+          _isCheckingCard = false;
+        });
+        return;
+      }
+
+      debugPrint('🔍 Vérification carte existante avec token: ${token.substring(0, 10)}...');
+      final result = await ApiService.getVirtualIDCard(token);
+
+      debugPrint('📡 Résultat vérification carte: $result');
+      setState(() {
+        _hasExistingCard = result['success'] == true && result['card'] != null;
+        _isCheckingCard = false;
+      });
+
+      debugPrint('✅ Carte existante: $_hasExistingCard');
+    } catch (e) {
+      debugPrint('❌ Erreur vérification carte existante: $e');
+      debugPrint('❌ Type d\'erreur: ${e.runtimeType}');
+      setState(() {
+        _hasExistingCard = false;
+        _isCheckingCard = false;
       });
     }
   }
@@ -305,6 +340,9 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
         return;
       }
 
+      debugPrint('🔄 Début sauvegarde carte serveur');
+      debugPrint('📝 Token disponible: ${token.substring(0, 10)}...');
+
       // Préparer les données de la carte
       final nameParts = user['name']?.split(' ') ?? [];
       final cardData = {
@@ -316,6 +354,17 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
         'expiryDate': DateTime.now().add(const Duration(days: 365 * 10)).toIso8601String(),
       };
 
+      debugPrint('📋 Données carte préparées: $cardData');
+      debugPrint('🔄 Force recreate: $_hasExistingCard');
+
+      // Créer le fichier PDF temporaire pour l'upload
+      File? pdfFile;
+      if (_generatedCardImage != null) {
+        final tempDir = await getTemporaryDirectory();
+        pdfFile = File('${tempDir.path}/carte_setraf_${DateTime.now().millisecondsSinceEpoch}.pdf');
+        await pdfFile.writeAsBytes(_generatedCardImage!);
+      }
+
       // Sauvegarder côté serveur
       final result = await ApiService.createVirtualIDCard(
         token,
@@ -325,7 +374,11 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
           'deviceAuthenticated': true,
           'authenticationTimestamp': DateTime.now().toIso8601String(),
         },
+        forceRecreate: _hasExistingCard, // Forcer la recréation si une carte existe déjà
+        cardPdfFile: pdfFile,
       );
+
+      debugPrint('📡 Résultat API: $result');
 
       if (result['success'] == true) {
         debugPrint('✅ Carte sauvegardée côté serveur');
@@ -336,7 +389,44 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
       }
     } catch (e) {
       debugPrint('❌ Erreur sauvegarde serveur: $e');
+      debugPrint('❌ Type d\'erreur: ${e.runtimeType}');
+      debugPrint('❌ Stack trace: ${e.toString()}');
       _showMessage('Erreur lors de la sauvegarde sur le serveur: $e');
+    }
+  }
+
+  Future<void> _deleteExistingCard() async {
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final token = appProvider.accessToken;
+
+      if (token == null) {
+        _showMessage('Erreur: Session expirée. Veuillez vous reconnecter.');
+        return;
+      }
+
+      debugPrint('🗑️ Début suppression carte existante');
+      debugPrint('🔑 Token disponible: ${token.substring(0, 10)}...');
+
+      final result = await ApiService.deleteVirtualIDCard(token);
+
+      debugPrint('📡 Résultat suppression: $result');
+
+      if (result['success'] == true) {
+        setState(() {
+          _hasExistingCard = false;
+        });
+        _showMessage('Carte supprimée avec succès !');
+        debugPrint('✅ Carte supprimée avec succès');
+      } else {
+        _showMessage('Erreur lors de la suppression: ${result['message'] ?? 'Erreur inconnue'}');
+        debugPrint('❌ Échec suppression: ${result['message']}');
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur suppression carte: $e');
+      debugPrint('❌ Type d\'erreur: ${e.runtimeType}');
+      debugPrint('❌ Stack trace: ${e.toString()}');
+      _showMessage('Erreur lors de la suppression de la carte: $e');
     }
   }
 
@@ -449,6 +539,47 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
 
                 // Section authentification
                 if (!_isAuthenticated) ...[
+                  // Afficher l'état de la carte existante
+                  if (!_isCheckingCard && _hasExistingCard) ...[
+                    FuturisticCard(
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: Colors.orange,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Vous avez déjà une carte SETRAF. La nouvelle carte remplacera l\'existante.',
+                                style: TextStyle(
+                                  color: themeProvider.textColor,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _deleteExistingCard,
+                              icon: const Icon(
+                                Icons.delete_forever,
+                                color: Colors.red,
+                              ),
+                              tooltip: 'Supprimer la carte existante',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   FuturisticCard(
                     child: Container(
                       padding: const EdgeInsets.all(24),
@@ -511,9 +642,9 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : const Text(
-                                    'S\'authentifier',
-                                    style: TextStyle(
+                                : Text(
+                                    _hasExistingCard ? 'Recréer la Carte' : 'S\'authentifier',
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
