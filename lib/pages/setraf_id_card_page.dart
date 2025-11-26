@@ -301,6 +301,7 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
 
       if (token == null) {
         debugPrint('Token manquant, impossible de sauvegarder côté serveur');
+        _showMessage('Erreur: Session expirée. Veuillez vous reconnecter.');
         return;
       }
 
@@ -327,12 +328,14 @@ class _SetrafIdCardPageState extends State<SetrafIdCardPage> {
 
       if (result['success'] == true) {
         debugPrint('✅ Carte sauvegardée côté serveur');
+        _showMessage('Carte SETRAF sauvegardée avec succès sur le serveur !');
       } else {
         debugPrint('⚠️ Échec sauvegarde serveur: ${result['message']}');
+        _showMessage('Erreur lors de la sauvegarde serveur: ${result['message'] ?? 'Erreur inconnue'}');
       }
     } catch (e) {
       debugPrint('❌ Erreur sauvegarde serveur: $e');
-      // Ne pas afficher d'erreur à l'utilisateur car la carte locale fonctionne
+      _showMessage('Erreur lors de la sauvegarde sur le serveur: $e');
     }
   }
 
