@@ -2032,7 +2032,7 @@ class ApiService {
     await _ensureInitialized();
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl$apiPrefix/admin/id-cards'),
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards/admin/all'),
         headers: _authHeaders(token),
       );
 
