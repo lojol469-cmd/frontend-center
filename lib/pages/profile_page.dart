@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../main.dart';
 import '../api_service.dart';
 import '../components/futuristic_card.dart';
@@ -2046,16 +2048,74 @@ class _ProfilePageState extends State<ProfilePage> {
                   onPressed: () async {
                     if (cardPdfUrl != null && cardPdfUrl.isNotEmpty) {
                       try {
-                        final uri = Uri.parse(cardPdfUrl);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                          _showMessage('Téléchargement de la carte PDF...');
+                        debugPrint('🔄 [PDF_DOWNLOAD] Début du téléchargement de la carte PDF');
+                        _showMessage('Téléchargement de la carte PDF en cours...');
+
+                        // Récupérer le token d'authentification
+                        final appProvider = Provider.of<AppProvider>(context, listen: false);
+                        final token = appProvider.accessToken;
+
+                        debugPrint('🔑 [PDF_DOWNLOAD] Token disponible: ${token != null ? "OUI (${token.length} caractères)" : "NON"}');
+
+                        if (token == null) {
+                          debugPrint('❌ [PDF_DOWNLOAD] Token manquant - session expirée');
+                          _showMessage('Session expirée. Veuillez vous reconnecter.');
+                          return;
+                        }
+
+                        debugPrint('🌐 [PDF_DOWNLOAD] URL du PDF: $cardPdfUrl');
+
+                        // Utiliser le nouvel endpoint backend pour télécharger le PDF
+                        debugPrint('📡 [PDF_DOWNLOAD] Utilisation de l\'endpoint backend /api/virtual-id-cards/download-pdf');
+
+                        final response = await http.get(
+                          Uri.parse('${ApiService.baseUrl}/api/virtual-id-cards/download-pdf'),
+                          headers: {
+                            'Authorization': 'Bearer $token',
+                            'Content-Type': 'application/json',
+                            'User-Agent': 'Center-App/1.0',
+                          },
+                        );
+
+                        debugPrint('📡 [PDF_DOWNLOAD] Status code reçu: ${response.statusCode}');
+                        debugPrint('📡 [PDF_DOWNLOAD] Headers de réponse: ${response.headers}');
+                        debugPrint('📡 [PDF_DOWNLOAD] Taille du corps: ${response.bodyBytes.length} bytes');
+
+                        if (response.statusCode == 200) {
+                          debugPrint('✅ [PDF_DOWNLOAD] Téléchargement réussi, sauvegarde dans le répertoire temporaire...');
+
+                          // Sauvegarder dans le répertoire temporaire
+                          final tempDir = await getTemporaryDirectory();
+                          final fileName = 'carte_setraf_${DateTime.now().millisecondsSinceEpoch}.pdf';
+                          final file = File('${tempDir.path}/$fileName');
+
+                          debugPrint('💾 [PDF_DOWNLOAD] Chemin du fichier temporaire: ${file.path}');
+                          await file.writeAsBytes(response.bodyBytes);
+                          debugPrint('💾 [PDF_DOWNLOAD] Fichier écrit avec succès');
+
+                          // Ouvrir/partager le PDF
+                          debugPrint('📤 [PDF_DOWNLOAD] Ouverture/partage du PDF...');
+                          await Share.shareXFiles(
+                            [XFile(file.path)],
+                            text: 'Ma carte d\'identité SETRAF',
+                            subject: 'Carte SETRAF',
+                          );
+
+                          debugPrint('✅ [PDF_DOWNLOAD] PDF téléchargé et partagé avec succès');
+                          _showMessage('Carte PDF téléchargée et ouverte !');
                         } else {
-                          _showMessage('Impossible d\'ouvrir le lien de téléchargement');
+                          debugPrint('❌ [PDF_DOWNLOAD] Erreur HTTP ${response.statusCode}');
+                          debugPrint('❌ [PDF_DOWNLOAD] Corps de la réponse: ${response.body}');
+                          _showMessage('Erreur lors du téléchargement: ${response.statusCode}');
                         }
                       } catch (e) {
+                        debugPrint('❌ [PDF_DOWNLOAD] Exception générale: $e');
+                        debugPrint('❌ [PDF_DOWNLOAD] Type d\'erreur: ${e.runtimeType}');
+                        debugPrint('❌ [PDF_DOWNLOAD] Stack trace: ${e.toString()}');
                         _showMessage('Erreur lors du téléchargement: $e');
                       }
+                    } else {
+                      _showMessage('URL du PDF non disponible');
                     }
                   },
                   icon: const Icon(Icons.download_rounded, color: Colors.white),
