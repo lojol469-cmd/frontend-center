@@ -1982,65 +1982,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
             // Aperçu de la carte
             if (cardPdfUrl != null && cardPdfUrl.isNotEmpty) ...[
-              Text(
-                'Aperçu de la Carte',
-                style: TextStyle(
-                  color: themeProvider.textColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                height: 300,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: themeProvider.isDarkMode
-                        ? Colors.white.withValues(alpha: 0.1)
-                        : Colors.black.withValues(alpha: 0.1),
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    color: themeProvider.isDarkMode
-                        ? Colors.black.withValues(alpha: 0.2)
-                        : Colors.grey.withValues(alpha: 0.1),
-                    child: const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.picture_as_pdf,
-                            color: Colors.blue,
-                            size: 64,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'Aperçu PDF disponible',
-                            style: TextStyle(
-                              color: Colors.blue,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Utilisez le bouton ci-dessous pour télécharger',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
               // Bouton de téléchargement
               SizedBox(
                 width: double.infinity,

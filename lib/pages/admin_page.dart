@@ -1694,7 +1694,7 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
             ),
           ),
 
-          const Spacer(),
+          const SizedBox(height: 16),
 
           // Boutons d'action
           Row(
