@@ -2976,6 +2976,7 @@ class ApiService {
     bool forceRecreate = false,
     File? cardPdfFile,
   }) async {
+    await _ensureInitialized();
     try {
       // ✅ MODE PRODUCTION: Utiliser directement l'URL Render
       final String serverUrl = ServerConfig.isProduction
@@ -3199,10 +3200,87 @@ class ApiService {
   }
 
   // ========================================
-  // ADMIN - GESTION DES CARTES D'IDENTITÉ
+  // TÉLÉCHARGEMENT DE MÉDIAS
   // ========================================
 
-  // Récupérer toutes les cartes d'identité (ADMIN)
+  // Télécharger un média de publication
+  static Future<Map<String, dynamic>> downloadPublicationMedia(String token, String publicationId, String mediaUrl) async {
+    await _ensureInitialized();
+    try {
+      developer.log('📥 [DOWNLOAD_MEDIA] Début téléchargement média publication $publicationId', name: 'ApiService');
+      developer.log('🔗 [DOWNLOAD_MEDIA] URL du média: $mediaUrl', name: 'ApiService');
+
+      // Pour les URLs Cloudinary, on peut les télécharger directement
+      if (mediaUrl.contains('cloudinary.com')) {
+        developer.log('☁️ [DOWNLOAD_MEDIA] URL Cloudinary détectée, téléchargement direct', name: 'ApiService');
+        
+        final response = await http.get(
+          Uri.parse(mediaUrl),
+          headers: {
+            'User-Agent': 'Center-App/1.0',
+          },
+        );
+
+        developer.log('📡 [DOWNLOAD_MEDIA] Status code: ${response.statusCode}', name: 'ApiService');
+        developer.log('📡 [DOWNLOAD_MEDIA] Taille du contenu: ${response.bodyBytes.length} bytes', name: 'ApiService');
+
+        if (response.statusCode == 200) {
+          developer.log('✅ [DOWNLOAD_MEDIA] Téléchargement réussi', name: 'ApiService');
+          return {
+            'success': true,
+            'data': response.bodyBytes,
+            'contentType': response.headers['content-type'] ?? 'application/octet-stream',
+            'fileName': _extractFileNameFromUrl(mediaUrl),
+          };
+        } else {
+          developer.log('❌ [DOWNLOAD_MEDIA] Erreur HTTP: ${response.statusCode}', name: 'ApiService');
+          return {
+            'success': false,
+            'message': 'Erreur de téléchargement: ${response.statusCode}',
+          };
+        }
+      } else {
+        // Pour les URLs du backend, utiliser l'authentification
+        developer.log('🔐 [DOWNLOAD_MEDIA] URL backend détectée, utilisation de l\'authentification', name: 'ApiService');
+        
+        final response = await http.get(
+          Uri.parse(mediaUrl),
+          headers: _authHeaders(token),
+        );
+
+        developer.log('📡 [DOWNLOAD_MEDIA] Status code: ${response.statusCode}', name: 'ApiService');
+
+        if (response.statusCode == 200) {
+          developer.log('✅ [DOWNLOAD_MEDIA] Téléchargement réussi', name: 'ApiService');
+          return {
+            'success': true,
+            'data': response.bodyBytes,
+            'contentType': response.headers['content-type'] ?? 'application/octet-stream',
+            'fileName': _extractFileNameFromUrl(mediaUrl),
+          };
+        } else {
+          developer.log('❌ [DOWNLOAD_MEDIA] Erreur HTTP: ${response.statusCode}', name: 'ApiService');
+          developer.log('❌ [DOWNLOAD_MEDIA] Corps de la réponse: ${response.body}', name: 'ApiService');
+          return {
+            'success': false,
+            'message': 'Erreur de téléchargement: ${response.statusCode}',
+          };
+        }
+      }
+    } catch (e) {
+      developer.log('❌ [DOWNLOAD_MEDIA] Exception: $e', name: 'ApiService');
+      return {
+        'success': false,
+        'message': 'Erreur de connexion: $e',
+      };
+    }
+  }
+
+  // ========================================
+  // ADMINISTRATION
+  // ========================================
+
+  // Récupérer toutes les cartes d'identité virtuelles (Admin)
   static Future<Map<String, dynamic>> getAllIDCards(String token) async {
     await _ensureInitialized();
     try {
@@ -3216,31 +3294,24 @@ class ApiService {
       if (response.statusCode == 200) {
         return data;
       } else {
-        throw Exception(data['message'] ?? 'Erreur de récupération des cartes');
+        throw Exception(data['message'] ?? 'Erreur lors de la récupération des cartes d\'identité');
       }
     } catch (e) {
       throw Exception('Erreur de connexion: $e');
     }
   }
 
-  // Supprimer une carte d'identité par ID (ADMIN)
-  static Future<Map<String, dynamic>> deleteVirtualIDCardById(String token, String cardId) async {
-    await _ensureInitialized();
+  // Extraire le nom de fichier depuis une URL
+  static String _extractFileNameFromUrl(String url) {
     try {
-      final response = await http.delete(
-        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards/admin/$cardId'),
-        headers: _authHeaders(token),
-      );
-
-      final data = json.decode(response.body);
-
-      if (response.statusCode == 200) {
-        return data;
-      } else {
-        throw Exception(data['message'] ?? 'Erreur de suppression de la carte');
+      final uri = Uri.parse(url);
+      final pathSegments = uri.pathSegments;
+      if (pathSegments.isNotEmpty) {
+        return pathSegments.last;
       }
+      return 'file_${DateTime.now().millisecondsSinceEpoch}';
     } catch (e) {
-      throw Exception('Erreur de connexion: $e');
+      return 'file_${DateTime.now().millisecondsSinceEpoch}';
     }
   }
 }

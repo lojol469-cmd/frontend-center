@@ -1174,7 +1174,7 @@ class _GroupChatPageState extends State<GroupChatPage> with TickerProviderStateM
         child: Image.network(
           url,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+          errorBuilder: (_, _, _) => const Icon(Icons.broken_image),
         ),
       );
     } else if (type == 'video') {

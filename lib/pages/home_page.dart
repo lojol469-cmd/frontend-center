@@ -1090,7 +1090,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         ? Image.network(
                             mediaUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (_, _, _) => Container(
                               color: Colors.black12,
                               child: Icon(
                                 Icons.broken_image,
