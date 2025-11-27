@@ -503,28 +503,36 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
         // Carte trouvée - connexion automatique sans OTP
         debugPrint('✅ Carte trouvée - Connexion automatique...');
 
-        final cardData = checkResult['card'] ?? {};
-        final cardId = cardData['idNumber'] ?? 'N/A';
+        // Utiliser directement cardId retourné par l'API (qui est idNumber)
+        final cardId = checkResult['cardId'] ?? 'N/A';
 
-        // Connexion automatique avec la carte virtuelle
-        final loginResult = await ApiService.loginWithVirtualCard(cardId);
+        if (cardId != 'N/A') {
+          // Connexion automatique avec la carte virtuelle
+          final loginResult = await ApiService.loginWithVirtualCard(cardId);
 
-        if (loginResult['success'] == true && loginResult.containsKey('accessToken')) {
-          if (mounted) {
-            final appProvider = Provider.of<AppProvider>(context, listen: false);
-            appProvider.setAuthenticated(
-              true,
-              token: loginResult['accessToken'],
-              user: loginResult['user'],
-            );
+          if (loginResult['success'] == true && loginResult.containsKey('accessToken')) {
+            if (mounted) {
+              final appProvider = Provider.of<AppProvider>(context, listen: false);
+              appProvider.setAuthenticated(
+                true,
+                token: loginResult['accessToken'],
+                user: loginResult['user'],
+              );
+            }
+            debugPrint('✅ Connexion automatique réussie avec carte ID: $cardId');
+          } else {
+            setState(() {
+              _showFaceIDOption = false;
+              _message = loginResult['message'] ?? 'Erreur de connexion automatique';
+            });
+            debugPrint('❌ Échec connexion automatique: ${loginResult['message']}');
           }
-          debugPrint('✅ Connexion automatique réussie avec carte ID: $cardId');
         } else {
           setState(() {
             _showFaceIDOption = false;
-            _message = loginResult['message'] ?? 'Erreur de connexion automatique';
+            _message = 'ID de carte non trouvé dans la réponse API';
           });
-          debugPrint('❌ Échec connexion automatique: ${loginResult['message']}');
+          debugPrint('❌ ID de carte non trouvé dans la réponse');
         }
       } else {
         // Pas de carte trouvée - proposer inscription ou connexion normale
