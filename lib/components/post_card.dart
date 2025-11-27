@@ -188,36 +188,6 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                         ),
                 ),
               ),
-              // ✅ Badge de vérification
-              if (widget.isVerified)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1DA1F2), // Couleur Twitter/X bleue
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.verified,
-                      color: Colors.white,
-                      size: 12,
-                    ),
-                  ),
-                ),
             ],
           ),
           const SizedBox(width: 12),
@@ -235,26 +205,31 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    // ✅ Badge "Vérifié" textuel si nécessaire
+                    // ✅ Badge de vérification à côté du nom (comme demandé)
                     if (widget.isVerified) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        width: 16,
+                        height: 16,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1DA1F2).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
+                          color: const Color(0xFF00FF88), // Couleur verte comme dans le profil
+                          shape: BoxShape.circle,
                           border: Border.all(
-                            color: const Color(0xFF1DA1F2).withValues(alpha: 0.3),
-                            width: 1,
+                            color: Colors.white,
+                            width: 1.5,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                         ),
-                        child: const Text(
-                          'Vérifié',
-                          style: TextStyle(
-                            color: Color(0xFF1DA1F2),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: const Icon(
+                          Icons.verified_user_rounded, // Icône comme dans la page de profil
+                          color: Colors.white,
+                          size: 10,
                         ),
                       ),
                     ],
