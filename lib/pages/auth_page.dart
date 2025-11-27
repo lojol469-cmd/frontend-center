@@ -500,18 +500,32 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       if (!mounted) return;
 
       if (checkResult['success'] == true && checkResult['hasCard'] == true) {
-        // Carte trouvée - afficher simplement l'ID et revenir au formulaire
-        debugPrint('✅ Carte trouvée - Affichage de l\'ID...');
+        // Carte trouvée - connexion automatique sans OTP
+        debugPrint('✅ Carte trouvée - Connexion automatique...');
 
         final cardData = checkResult['card'] ?? {};
         final cardId = cardData['idNumber'] ?? 'N/A';
 
-        // Afficher un message simple avec l'ID de la carte
-        setState(() {
-          _showFaceIDOption = false;
-          _message = '✅ Carte d\'identité trouvée (ID: $cardId). Veuillez vous connecter avec votre email et mot de passe.';
-        });
-        debugPrint('✅ ID Carte affiché: $cardId');
+        // Connexion automatique avec la carte virtuelle
+        final loginResult = await ApiService.loginWithVirtualCard(cardId);
+
+        if (loginResult['success'] == true && loginResult.containsKey('accessToken')) {
+          if (mounted) {
+            final appProvider = Provider.of<AppProvider>(context, listen: false);
+            appProvider.setAuthenticated(
+              true,
+              token: loginResult['accessToken'],
+              user: loginResult['user'],
+            );
+          }
+          debugPrint('✅ Connexion automatique réussie avec carte ID: $cardId');
+        } else {
+          setState(() {
+            _showFaceIDOption = false;
+            _message = loginResult['message'] ?? 'Erreur de connexion automatique';
+          });
+          debugPrint('❌ Échec connexion automatique: ${loginResult['message']}');
+        }
       } else {
         // Pas de carte trouvée - proposer inscription ou connexion normale
         setState(() {
