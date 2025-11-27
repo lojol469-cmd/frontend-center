@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../main.dart';
 import '../api_service.dart';
@@ -1982,99 +1980,57 @@ class _ProfilePageState extends State<ProfilePage> {
 
             // Aperçu de la carte
             if (cardPdfUrl != null && cardPdfUrl.isNotEmpty) ...[
-              // Bouton de téléchargement
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    if (cardPdfUrl != null && cardPdfUrl.isNotEmpty) {
-                      try {
-                        debugPrint('🔄 [PDF_DOWNLOAD] Début du téléchargement de la carte PDF');
-                        _showMessage('Téléchargement de la carte PDF en cours...');
-
-                        // Récupérer le token d'authentification
-                        final appProvider = Provider.of<AppProvider>(context, listen: false);
-                        final token = appProvider.accessToken;
-
-                        debugPrint('🔑 [PDF_DOWNLOAD] Token disponible: ${token != null ? "OUI (${token.length} caractères)" : "NON"}');
-
-                        if (token == null) {
-                          debugPrint('❌ [PDF_DOWNLOAD] Token manquant - session expirée');
-                          _showMessage('Session expirée. Veuillez vous reconnecter.');
-                          return;
-                        }
-
-                        debugPrint('🌐 [PDF_DOWNLOAD] URL du PDF: $cardPdfUrl');
-
-                        // Utiliser le nouvel endpoint backend pour télécharger le PDF
-                        debugPrint('📡 [PDF_DOWNLOAD] Utilisation de l\'endpoint backend /api/virtual-id-cards/download-pdf');
-
-                        final response = await http.get(
-                          Uri.parse('${ApiService.baseUrl}/api/virtual-id-cards/download-pdf'),
-                          headers: {
-                            'Authorization': 'Bearer $token',
-                            'Content-Type': 'application/json',
-                            'User-Agent': 'Center-App/1.0',
-                          },
-                        );
-
-                        debugPrint('📡 [PDF_DOWNLOAD] Status code reçu: ${response.statusCode}');
-                        debugPrint('📡 [PDF_DOWNLOAD] Headers de réponse: ${response.headers}');
-                        debugPrint('📡 [PDF_DOWNLOAD] Taille du corps: ${response.bodyBytes.length} bytes');
-
-                        if (response.statusCode == 200) {
-                          debugPrint('✅ [PDF_DOWNLOAD] Téléchargement réussi, sauvegarde dans le répertoire temporaire...');
-
-                          // Sauvegarder dans le répertoire temporaire
-                          final tempDir = await getTemporaryDirectory();
-                          final fileName = 'carte_setraf_${DateTime.now().millisecondsSinceEpoch}.pdf';
-                          final file = File('${tempDir.path}/$fileName');
-
-                          debugPrint('💾 [PDF_DOWNLOAD] Chemin du fichier temporaire: ${file.path}');
-                          await file.writeAsBytes(response.bodyBytes);
-                          debugPrint('💾 [PDF_DOWNLOAD] Fichier écrit avec succès');
-
-                          // Ouvrir/partager le PDF
-                          debugPrint('📤 [PDF_DOWNLOAD] Ouverture/partage du PDF...');
-                          await Share.shareXFiles(
-                            [XFile(file.path)],
-                            text: 'Ma carte d\'identité SETRAF',
-                            subject: 'Carte SETRAF',
-                          );
-
-                          debugPrint('✅ [PDF_DOWNLOAD] PDF téléchargé et partagé avec succès');
-                          _showMessage('Carte PDF téléchargée et ouverte !');
-                        } else {
-                          debugPrint('❌ [PDF_DOWNLOAD] Erreur HTTP ${response.statusCode}');
-                          debugPrint('❌ [PDF_DOWNLOAD] Corps de la réponse: ${response.body}');
-                          _showMessage('Erreur lors du téléchargement: ${response.statusCode}');
-                        }
-                      } catch (e) {
-                        debugPrint('❌ [PDF_DOWNLOAD] Exception générale: $e');
-                        debugPrint('❌ [PDF_DOWNLOAD] Type d\'erreur: ${e.runtimeType}');
-                        debugPrint('❌ [PDF_DOWNLOAD] Stack trace: ${e.toString()}');
-                        _showMessage('Erreur lors du téléchargement: $e');
-                      }
-                    } else {
-                      _showMessage('URL du PDF non disponible');
-                    }
-                  },
-                  icon: const Icon(Icons.download_rounded, color: Colors.white),
-                  label: const Text(
-                    'Télécharger la Carte PDF',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.blue.withValues(alpha: 0.3),
+                    width: 1,
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00D4FF),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.picture_as_pdf,
+                      color: Colors.blue,
+                      size: 24,
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Carte PDF Disponible',
+                            style: TextStyle(
+                              color: themeProvider.textColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Cliquez pour voir la carte complète',
+                            style: TextStyle(
+                              color: themeProvider.textSecondaryColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.open_in_new,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
+                      onPressed: () => _navigateToSetrafCard(context),
+                      tooltip: 'Ouvrir la carte',
+                    ),
+                  ],
                 ),
               ),
             ] else ...[
