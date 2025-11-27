@@ -1922,12 +1922,4 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
       ),
     );
   }
-
-  Future<void> _downloadIDCardPDF(BuildContext context, dynamic idCard, AppProvider appProvider) async {
-    // Fonction supprimée - plus utilisée dans l'interface admin
-  }
-
-  Future<void> _shareIDCard(BuildContext context, dynamic idCard, AppProvider appProvider) async {
-    // Fonction supprimée - plus utilisée dans l'interface admin
-  }
 }
