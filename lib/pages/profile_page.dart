@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../api_service.dart';
 import '../components/futuristic_card.dart';
@@ -34,6 +35,8 @@ class _ProfilePageState extends State<ProfilePage> {
   // Gestion de la carte ID
   Map<String, dynamic>? _virtualIDCard;
   bool _isLoadingIDCard = false;
+  Map<String, dynamic>? _cardStats; // Statistiques réelles de la carte
+  bool _isLoadingCardStats = false;
 
   // Gestion des publications pour libérer l'espace
   List<Map<String, dynamic>> _myPublications = [];
@@ -48,6 +51,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadStorageInfo();
     _loadMyPublications();
     _loadVirtualIDCard();
+    _loadCardStats();
   }
   Future<void> _loadUserStats() async {
     // Éviter les appels simultanés - VÉRIFIER EN PREMIER
@@ -138,6 +142,42 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  /// Charger les statistiques réelles de la carte d'identité virtuelle
+  Future<void> _loadCardStats() async {
+    if (_isLoadingCardStats) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) {
+      debugPrint('⚠️ Token manquant pour charger les stats de la carte');
+      return;
+    }
+
+    setState(() => _isLoadingCardStats = true);
+
+    try {
+      final result = await ApiService.getVirtualIDCardStats(token);
+      debugPrint('📊 Stats carte reçues: ${result['success']}');
+
+      if (mounted && result['success'] == true) {
+        setState(() {
+          _cardStats = result['stats'];
+          _isLoadingCardStats = false;
+        });
+      } else {
+        if (mounted) {
+          setState(() => _isLoadingCardStats = false);
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur chargement stats carte: $e');
+      if (mounted) {
+        setState(() => _isLoadingCardStats = false);
+      }
+    }
+  }
+
   /// Charger la carte ID virtuelle de l'utilisateur
   Future<void> _loadVirtualIDCard() async {
     if (_isLoadingIDCard) return;
@@ -157,23 +197,17 @@ class _ProfilePageState extends State<ProfilePage> {
       debugPrint('🆔 Carte ID reçue: ${result['success']}');
 
       if (mounted && result['success'] == true) {
-        // Mettre à jour le Provider avec les données de la carte
-        appProvider.setVirtualIdCard(result['card']);
         setState(() {
           _virtualIDCard = result['card'];
           _isLoadingIDCard = false;
         });
       } else {
-        // Pas de carte trouvée, mettre à jour le Provider avec null
-        appProvider.setVirtualIdCard(null);
         if (mounted) {
           setState(() => _isLoadingIDCard = false);
         }
       }
     } catch (e) {
       debugPrint('❌ Erreur chargement carte ID: $e');
-      // En cas d'erreur, mettre à jour le Provider avec null
-      appProvider.setVirtualIdCard(null);
       if (mounted) {
         setState(() => _isLoadingIDCard = false);
       }
@@ -1710,9 +1744,8 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final cardId = _virtualIDCard?['cardId'] ?? _virtualIDCard?['idNumber'] ?? 'N/A';
-    final cardImageUrl = _virtualIDCard?['imageUrl'];
-    final cardPdfUrl = _virtualIDCard?['pdfUrl'];
+    final cardId = _virtualIDCard?['cardData']?['idNumber'] ?? _virtualIDCard?['cardId'] ?? _virtualIDCard?['idNumber'] ?? 'N/A';
+    final cardPdfUrl = _virtualIDCard?['cardPdf']?['url'] ?? _virtualIDCard?['cardImage']?['frontImage'];
     
     // Dates automatiques si non fournies
     final now = DateTime.now();
@@ -1791,61 +1824,154 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 24),
 
-            // ID de la carte
+            // ID de la carte - Section proéminente
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF00FF88).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF00FF88).withValues(alpha: 0.3),
-                  width: 1,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.confirmation_number,
-                    color: Color(0xFF00FF88),
-                    size: 24,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.confirmation_number_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'ID de votre Carte SETRAF',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                          'ID de la Carte',
-                          style: TextStyle(
-                            color: themeProvider.textSecondaryColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                        Expanded(
+                          child: Text(
+                            cardId,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'monospace',
+                              letterSpacing: 1.2,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          cardId,
-                          style: TextStyle(
-                            color: themeProvider.textColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'monospace',
+                        IconButton(
+                          icon: const Icon(
+                            Icons.copy_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                          onPressed: () async {
+                            await Clipboard.setData(ClipboardData(text: cardId));
+                            _showMessage('✅ ID de la carte copié dans le presse-papiers !');
+                          },
+                          tooltip: 'Copier l\'ID',
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.white.withValues(alpha: 0.2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.copy,
-                      color: Color(0xFF00FF88),
-                      size: 20,
+                  const SizedBox(height: 8),
+                  Text(
+                    'Cet ID unique identifie votre carte biométrique. Utilisez-le pour les vérifications.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 12,
                     ),
-                    onPressed: () async {
-                      await Clipboard.setData(ClipboardData(text: cardId));
-                      _showMessage('ID de la carte copié !');
-                    },
-                    tooltip: 'Copier l\'ID',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Informations détaillées de la carte
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: themeProvider.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.black.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: themeProvider.isDarkMode
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.1),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Informations de la Carte',
+                    style: TextStyle(
+                      color: themeProvider.textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildCardInfoRow(
+                    'Statut',
+                    _virtualIDCard?['verificationStatus'] == 'verified' ? 'Vérifiée' : 'En attente',
+                    _virtualIDCard?['verificationStatus'] == 'verified' ? Icons.verified : Icons.pending,
+                    _virtualIDCard?['verificationStatus'] == 'verified' ? const Color(0xFF00FF88) : const Color(0xFFFFAA00),
+                    themeProvider,
+                  ),
+                  _buildCardInfoRow(
+                    'Utilisations',
+                    _isLoadingCardStats 
+                        ? 'Chargement...' 
+                        : '${_cardStats?['totalUses'] ?? 0}',
+                    Icons.touch_app,
+                    const Color(0xFF00D4FF),
+                    themeProvider,
+                  ),
+                  _buildCardInfoRow(
+                    'Dernière utilisation',
+                    _cardStats?['lastUsed'] != null
+                        ? DateTime.parse(_cardStats!['lastUsed']).toString().substring(0, 10)
+                        : 'Jamais',
+                    Icons.access_time,
+                    const Color(0xFFFF6B35),
+                    themeProvider,
                   ),
                 ],
               ),
@@ -1853,7 +1979,7 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 16),
 
             // Aperçu de la carte
-            if (cardImageUrl != null && cardImageUrl.isNotEmpty) ...[
+            if (cardPdfUrl != null && cardPdfUrl.isNotEmpty) ...[
               Text(
                 'Aperçu de la Carte',
                 style: TextStyle(
@@ -1864,7 +1990,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 12),
               Container(
-                height: 200,
+                height: 300,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
@@ -1875,52 +2001,82 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    cardImageUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                          color: const Color(0xFF00D4FF),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: themeProvider.isDarkMode
-                            ? Colors.black.withValues(alpha: 0.2)
-                            : Colors.grey.withValues(alpha: 0.1),
-                        child: const Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.broken_image,
-                                color: Colors.grey,
-                                size: 48,
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Aperçu non disponible',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
+                  child: Container(
+                    color: themeProvider.isDarkMode
+                        ? Colors.black.withValues(alpha: 0.2)
+                        : Colors.grey.withValues(alpha: 0.1),
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.picture_as_pdf,
+                            color: Colors.blue,
+                            size: 64,
                           ),
-                        ),
-                      );
-                    },
+                          SizedBox(height: 16),
+                          Text(
+                            'Aperçu PDF disponible',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Utilisez le bouton ci-dessous pour télécharger',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ] else if (cardPdfUrl != null && cardPdfUrl.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              // Bouton de téléchargement
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    if (cardPdfUrl != null && cardPdfUrl.isNotEmpty) {
+                      try {
+                        final uri = Uri.parse(cardPdfUrl);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          _showMessage('Téléchargement de la carte PDF...');
+                        } else {
+                          _showMessage('Impossible d\'ouvrir le lien de téléchargement');
+                        }
+                      } catch (e) {
+                        _showMessage('Erreur lors du téléchargement: $e');
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.download_rounded, color: Colors.white),
+                  label: const Text(
+                    'Télécharger la Carte PDF',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00D4FF),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ] else ...[
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -2068,6 +2224,60 @@ class _ProfilePageState extends State<ProfilePage> {
               color: themeProvider.textColor,
               fontSize: 12,
               fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardInfoRow(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    ThemeProvider themeProvider,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: themeProvider.textSecondaryColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: themeProvider.textColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
