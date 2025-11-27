@@ -1314,6 +1314,10 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
             final userAvatar = userId['profileImage'];
             debugPrint('📸 userAvatar: $userAvatar');
             
+            // ✅ AJOUT - Récupérer le statut de vérification
+            final isVerified = userId['isVerified'] == true || userId['verified'] == true;
+            debugPrint('✅ isVerified: $isVerified');
+            
             final userEmail = userId['email'] ?? '';
             final content = pub['content'] ?? '';
             final likes = (pub['likes'] as List?)?.length ?? 0;
@@ -1425,6 +1429,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                 userAvatar: userAvatar,
                 latitude: latitude, // ✅ AJOUT - Passer la latitude
                 longitude: longitude, // ✅ AJOUT - Passer la longitude
+                isVerified: isVerified, // ✅ AJOUT - Passer le statut de vérification
                 onLike: () => _likePublication(publicationId),
                 onComment: () => _showCommentsDialog(publicationId, content),
                 onShare: () => _sharePublication(publicationId),

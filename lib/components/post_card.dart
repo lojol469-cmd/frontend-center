@@ -27,6 +27,7 @@ class PostCard extends StatefulWidget {
   final bool isOwner;
   final double? latitude; // ✅ AJOUT - Latitude de la géolocalisation
   final double? longitude; // ✅ AJOUT - Longitude de la géolocalisation
+  final bool isVerified; // ✅ AJOUT - Badge de vérification
 
   const PostCard({
     super.key,
@@ -50,6 +51,7 @@ class PostCard extends StatefulWidget {
     this.isOwner = false,
     this.latitude, // ✅ AJOUT
     this.longitude, // ✅ AJOUT
+    this.isVerified = false, // ✅ AJOUT
   });
 
   @override
@@ -105,52 +107,71 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
-              ),
-              border: Border.all(
-                color: Colors.white,
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF00FF88).withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+          Stack(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
+                  ),
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: ClipOval(
-              child: widget.userAvatar != null && widget.userAvatar!.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: widget.userAvatar!,
-                      width: 50,
-                      height: 50,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: const Color(0xFF00FF88),
-                        child: Center(
-                          child: Text(
-                            widget.userName.isNotEmpty 
-                                ? widget.userName[0].toUpperCase()
-                                : 'U',
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                child: ClipOval(
+                  child: widget.userAvatar != null && widget.userAvatar!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: widget.userAvatar!,
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: const Color(0xFF00FF88),
+                            child: Center(
+                              child: Text(
+                                widget.userName.isNotEmpty 
+                                    ? widget.userName[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      errorWidget: (context, url, error) {
-                        debugPrint('❌ Erreur chargement avatar: $error');
-                        debugPrint('📸 URL avatar: $url');
-                        return Container(
+                          errorWidget: (context, url, error) {
+                            debugPrint('❌ Erreur chargement avatar: $error');
+                            debugPrint('📸 URL avatar: $url');
+                            return Container(
+                              color: const Color(0xFF00FF88),
+                              child: Center(
+                                child: Text(
+                                  widget.userName.isNotEmpty 
+                                      ? widget.userName[0].toUpperCase()
+                                      : 'U',
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : Container(
                           color: const Color(0xFF00FF88),
                           child: Center(
                             child: Text(
@@ -164,38 +185,80 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                               ),
                             ),
                           ),
-                        );
-                      },
-                    )
-                  : Container(
-                      color: const Color(0xFF00FF88),
-                      child: Center(
-                        child: Text(
-                          widget.userName.isNotEmpty 
-                              ? widget.userName[0].toUpperCase()
-                              : 'U',
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
                         ),
+                ),
+              ),
+              // ✅ Badge de vérification
+              if (widget.isVerified)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1DA1F2), // Couleur Twitter/X bleue
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 2,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-            ),
+                    child: const Icon(
+                      Icons.verified,
+                      color: Colors.white,
+                      size: 12,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.userName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      widget.userName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    // ✅ Badge "Vérifié" textuel si nécessaire
+                    if (widget.isVerified) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1DA1F2).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFF1DA1F2).withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          'Vérifié',
+                          style: TextStyle(
+                            color: Color(0xFF1DA1F2),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 Text(
                   '${widget.userRole} • ${widget.timeAgo}',
@@ -217,9 +280,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
         ],
       ),
     );
-  }
-
-  Widget _buildContent() {
+  }  Widget _buildContent() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Text(
