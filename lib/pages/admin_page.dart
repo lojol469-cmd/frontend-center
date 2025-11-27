@@ -1510,7 +1510,7 @@ class _AdminPageState extends State<AdminPage> with WidgetsBindingObserver {
     final String lastName = idCard['cardData']?['lastName'] ?? '';
     final String userName = idCard['user']?['name'] ?? 'Utilisateur inconnu';
     final String userEmail = idCard['user']?['email'] ?? '';
-    final String photoUrl = _getFullUrl(idCard['cardData']?['photo'] ?? '');
+    final String photoUrl = _getFullUrl(idCard['user']?['profileImage'] ?? '');
     final bool isActive = idCard['isActive'] ?? true;
 
     return Container(
