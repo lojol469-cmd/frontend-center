@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../main.dart';
@@ -176,6 +177,38 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         setState(() => _isLoadingIDCard = false);
       }
+    }
+  }
+
+  /// Renouveler automatiquement la carte ID (change l'ID tous les 3 mois)
+  /// Routes backend requises:
+  /// - POST /api/virtual-id-cards/renew : renouvelle la carte avec un nouvel ID
+  /// - La route doit vérifier la date d'expiration et générer un nouvel ID si expiré
+  /// - Format ID: SETRAF-{timestamp}-{userId_suffix}
+  Future<void> _renewVirtualIDCard() async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) {
+      _showMessage('Non authentifié');
+      return;
+    }
+
+    try {
+      _showMessage('Renouvellement de la carte en cours...');
+      
+      final result = await ApiService.renewVirtualIDCard(token);
+      
+      if (result['success'] == true) {
+        // Recharger les données de la carte
+        await _loadVirtualIDCard();
+        _showMessage('Carte renouvelée avec succès ! Nouvel ID généré.');
+      } else {
+        _showMessage('Erreur lors du renouvellement: ${result['message'] ?? 'Erreur inconnue'}');
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur renouvellement carte: $e');
+      _showMessage('Erreur lors du renouvellement: $e');
     }
   }
 
@@ -1658,6 +1691,507 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Widget _buildVirtualIDCardSection(BuildContext context, AppProvider appProvider) {
+    if (_isLoadingIDCard) {
+      return FuturisticCard(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFF00D4FF),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_virtualIDCard == null) {
+      return const SizedBox.shrink();
+    }
+
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final cardId = _virtualIDCard?['cardId'] ?? _virtualIDCard?['idNumber'] ?? 'N/A';
+    final cardImageUrl = _virtualIDCard?['imageUrl'];
+    final cardPdfUrl = _virtualIDCard?['pdfUrl'];
+    
+    // Dates automatiques si non fournies
+    final now = DateTime.now();
+    final issueDate = _virtualIDCard?['issueDate'] != null
+        ? DateTime.parse(_virtualIDCard!['issueDate'])
+        : now;
+    final expiryDate = _virtualIDCard?['expiryDate'] != null
+        ? DateTime.parse(_virtualIDCard!['expiryDate'])
+        : now.add(const Duration(days: 90)); // 3 mois par défaut
+    
+    final issueDateStr = issueDate.toString().substring(0, 10);
+    final expiryDateStr = expiryDate.toString().substring(0, 10);
+    
+    // Calcul du temps restant
+    final difference = expiryDate.difference(now);
+
+    return FuturisticCard(
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // En-tête
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.badge_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Carte d\'Identité SETRAF',
+                        style: TextStyle(
+                          color: themeProvider.textColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Votre carte biométrique officielle',
+                        style: TextStyle(
+                          color: themeProvider.textSecondaryColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.visibility,
+                    color: themeProvider.primaryColor,
+                  ),
+                  onPressed: () => _navigateToSetrafCard(context),
+                  tooltip: 'Voir la carte complète',
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // ID de la carte
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00FF88).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.confirmation_number,
+                    color: Color(0xFF00FF88),
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ID de la Carte',
+                          style: TextStyle(
+                            color: themeProvider.textSecondaryColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          cardId,
+                          style: TextStyle(
+                            color: themeProvider.textColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.copy,
+                      color: Color(0xFF00FF88),
+                      size: 20,
+                    ),
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: cardId));
+                      _showMessage('ID de la carte copié !');
+                    },
+                    tooltip: 'Copier l\'ID',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Aperçu de la carte
+            if (cardImageUrl != null && cardImageUrl.isNotEmpty) ...[
+              Text(
+                'Aperçu de la Carte',
+                style: TextStyle(
+                  color: themeProvider.textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: themeProvider.isDarkMode
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.black.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    cardImageUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                          color: const Color(0xFF00D4FF),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: themeProvider.isDarkMode
+                            ? Colors.black.withValues(alpha: 0.2)
+                            : Colors.grey.withValues(alpha: 0.1),
+                        child: const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.broken_image,
+                                color: Colors.grey,
+                                size: 48,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Aperçu non disponible',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ] else if (cardPdfUrl != null && cardPdfUrl.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.blue.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.picture_as_pdf,
+                      color: Colors.blue,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Carte PDF Disponible',
+                            style: TextStyle(
+                              color: themeProvider.textColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Cliquez pour voir la carte complète',
+                            style: TextStyle(
+                              color: themeProvider.textSecondaryColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.open_in_new,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
+                      onPressed: () => _navigateToSetrafCard(context),
+                      tooltip: 'Ouvrir la carte',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+
+            // Compte à rebours jusqu'à expiration
+            _buildExpirationCountdown(expiryDate, themeProvider),
+
+            const SizedBox(height: 16),
+
+            // Bouton de renouvellement si expiré ou bientôt expiré
+            if (difference.inDays <= 7 || difference.isNegative) ...[
+              GradientButton(
+                onPressed: _renewVirtualIDCard,
+                gradientColors: difference.isNegative 
+                    ? [Colors.red, Colors.red.shade700]
+                    : [const Color(0xFFFFAA00), const Color(0xFFFF8800)],
+                child: Text(
+                  difference.isNegative ? 'Renouveler la Carte' : 'Renouveler Bientôt',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Dates
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDateInfo(
+                    'Émise le',
+                    issueDateStr,
+                    Icons.calendar_today,
+                    const Color(0xFF00D4FF),
+                    themeProvider,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildDateInfo(
+                    'Expire le',
+                    expiryDateStr,
+                    Icons.event_busy,
+                    const Color(0xFFFFAA00),
+                    themeProvider,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateInfo(
+    String label,
+    String date,
+    IconData icon,
+    Color color,
+    ThemeProvider themeProvider,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: themeProvider.textSecondaryColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            date,
+            style: TextStyle(
+              color: themeProvider.textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpirationCountdown(DateTime expiryDate, ThemeProvider themeProvider) {
+    final now = DateTime.now();
+    final difference = expiryDate.difference(now);
+    
+    if (difference.isNegative) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.red.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.red,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Carte Expirée',
+                    style: TextStyle(
+                      color: themeProvider.textColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Votre carte a expiré. Renouvelez-la.',
+                    style: TextStyle(
+                      color: themeProvider.textSecondaryColor,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final days = difference.inDays;
+    final hours = difference.inHours % 24;
+    final minutes = difference.inMinutes % 60;
+
+    Color countdownColor;
+    String urgencyText;
+    
+    if (days > 30) {
+      countdownColor = const Color(0xFF00FF88);
+      urgencyText = 'Valide';
+    } else if (days > 7) {
+      countdownColor = const Color(0xFFFFAA00);
+      urgencyText = 'Expire bientôt';
+    } else {
+      countdownColor = Colors.red;
+      urgencyText = 'Expiration imminente';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: countdownColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: countdownColor.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.timer,
+            color: countdownColor,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  urgencyText,
+                  style: TextStyle(
+                    color: themeProvider.textColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  days > 0 
+                      ? '$days jours, $hours heures restantes'
+                      : '$hours heures, $minutes minutes restantes',
+                  style: TextStyle(
+                    color: themeProvider.textSecondaryColor,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLogoutButton(BuildContext context, AppProvider appProvider) {
     return GradientButton(
       onPressed: () => _showLogoutDialog(context, appProvider),
@@ -2058,6 +2592,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 16), // Réduit de 24 à 16
                     _buildQuickStats(context, appProvider),
                     const SizedBox(height: 16), // Réduit de 24 à 16
+                    _buildVirtualIDCardSection(context, appProvider),
+                    const SizedBox(height: 16),
                     _buildStorageSection(), // Section de stockage
                     const SizedBox(height: 16),
                     _buildPublicationsManagementSection(), // Section de gestion des publications

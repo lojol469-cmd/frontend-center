@@ -3177,6 +3177,27 @@ class ApiService {
     }
   }
 
+  // Renouveler la carte d'identité virtuelle (change l'ID tous les 3 mois)
+  static Future<Map<String, dynamic>> renewVirtualIDCard(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/virtual-id-cards/renew'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur lors du renouvellement');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
   // ========================================
   // ADMIN - GESTION DES CARTES D'IDENTITÉ
   // ========================================
