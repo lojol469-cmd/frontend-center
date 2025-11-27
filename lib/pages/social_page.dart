@@ -1315,8 +1315,8 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
             debugPrint('📸 userAvatar: $userAvatar');
             
             // ✅ AJOUT - Récupérer le statut de vérification
-            final isVerified = userId['isVerified'] == true || userId['verified'] == true;
-            debugPrint('✅ isVerified: $isVerified');
+            final isVerified = userId['hasVirtualIDCard'] == true;
+            debugPrint('✅ isVerified (hasVirtualIDCard): $isVerified');
             
             final userEmail = userId['email'] ?? '';
             final content = pub['content'] ?? '';
